@@ -1,3 +1,5 @@
+console.log('[FocalPoint] Server module loading...');
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -7,6 +9,8 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { GoogleGenAI, Type, createPartFromUri } from "@google/genai";
 
+console.log('[FocalPoint] All imports successful');
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,6 +18,7 @@ const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = isProduction ? 5000 : 3001;
 
+console.log('[FocalPoint] Configuring middleware...');
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
@@ -231,14 +236,22 @@ if (isProduction) {
 }
 
 process.on('uncaughtException', (error) => {
-  FocalPointLogger.error("Uncaught_Exception", error);
+  console.error('[FocalPoint][FATAL] Uncaught Exception:', error);
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  FocalPointLogger.error("Unhandled_Rejection", { reason, promise });
+  console.error('[FocalPoint][FATAL] Unhandled Rejection:', reason);
 });
 
+console.log('[FocalPoint] Starting server...');
 const host = isProduction ? '0.0.0.0' : 'localhost';
-app.listen(PORT, host, () => {
+const server = app.listen(PORT, host, () => {
   console.log(`[FocalPoint] Backend server running on http://${host}:${PORT}`);
 });
+
+server.on('error', (err) => {
+  console.error('[FocalPoint][FATAL] Server error:', err);
+});
+
+console.log('[FocalPoint] Server setup complete, waiting for listen callback...');
