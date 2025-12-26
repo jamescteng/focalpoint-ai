@@ -1,8 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI, Type } from "@google/genai";
+import multer from 'multer';
+import { GoogleGenAI, Type, createPartFromUri } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,10 +15,15 @@ const isProduction = process.env.NODE_ENV === 'production';
 const PORT = isProduction ? 5000 : 3001;
 
 app.use(cors());
-app.use(express.json({ limit: '500mb' }));
+app.use(express.json({ limit: '50mb' }));
 
-const MAX_VIDEO_SIZE_MB = 100;
+const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+
+const upload = multer({
+  dest: os.tmpdir(),
+  limits: { fileSize: MAX_VIDEO_SIZE_BYTES }
+});
 
 if (isProduction) {
   app.use(express.static(path.join(__dirname, '../dist')));
@@ -27,8 +35,8 @@ interface AnalyzeRequest {
   srtContent: string;
   questions: string[];
   language: 'en' | 'zh-TW';
-  videoBase64?: string;
-  videoMimeType?: string;
+  fileUri: string;
+  fileMimeType: string;
 }
 
 const FocalPointLogger = {
@@ -51,47 +59,85 @@ const safeParseReport = (text: string): any => {
   }
 };
 
+const getAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Server configuration error: API key not set.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+app.post('/api/upload', upload.single('video'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "No video file provided." });
+    }
+
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    FocalPointLogger.info("Upload_Start", { name: file.originalname, size: `${fileSizeMB} MB` });
+
+    const ai = getAI();
+
+    const uploadedFile = await ai.files.upload({
+      file: file.path,
+      config: {
+        mimeType: file.mimetype
+      }
+    });
+
+    FocalPointLogger.info("Upload_Complete", { name: uploadedFile.name, uri: uploadedFile.uri });
+
+    let fileInfo = await ai.files.get({ name: uploadedFile.name! });
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    while (fileInfo.state === "PROCESSING" && attempts < maxAttempts) {
+      FocalPointLogger.info("Processing", `Waiting for video processing... (${attempts + 1}/${maxAttempts})`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      fileInfo = await ai.files.get({ name: uploadedFile.name! });
+      attempts++;
+    }
+
+    fs.unlink(file.path, () => {});
+
+    if (fileInfo.state === "FAILED") {
+      return res.status(500).json({ error: "Video processing failed. Please try a different video format." });
+    }
+
+    if (fileInfo.state === "PROCESSING") {
+      return res.status(500).json({ error: "Video processing timed out. Please try a shorter or smaller video." });
+    }
+
+    FocalPointLogger.info("Processing_Complete", { state: fileInfo.state });
+
+    res.json({
+      fileUri: fileInfo.uri,
+      fileMimeType: file.mimetype,
+      fileName: uploadedFile.name
+    });
+
+  } catch (error: any) {
+    FocalPointLogger.error("Upload", error);
+    res.status(500).json({ error: `Upload failed: ${error.message}` });
+  }
+});
+
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { title, synopsis, srtContent, questions, language, videoBase64, videoMimeType } = req.body as AnalyzeRequest;
+    const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType } = req.body as AnalyzeRequest;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "Server configuration error: API key not set." });
-    }
+    const ai = getAI();
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: "Invalid project metadata: title is required." });
     }
 
-    if (!videoBase64) {
-      return res.status(400).json({ error: "Video asset is required for multimodal appraisal." });
+    if (!fileUri) {
+      return res.status(400).json({ error: "Video file URI is required. Please upload a video first." });
     }
 
-    const videoSizeBytes = Math.ceil((videoBase64.length * 3) / 4);
-    const videoSizeMB = (videoSizeBytes / 1024 / 1024).toFixed(2);
-    FocalPointLogger.info("Video_Size", `${videoSizeMB} MB`);
-
-    if (videoSizeBytes > MAX_VIDEO_SIZE_BYTES) {
-      return res.status(400).json({ 
-        error: `Video file is too large (${videoSizeMB}MB). Please use a compressed video under ${MAX_VIDEO_SIZE_MB}MB for best results.` 
-      });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
     const modelName = "gemini-2.5-flash";
-
-    const parts: any[] = [];
-
-    if (videoBase64) {
-      parts.push({
-        inlineData: {
-          data: videoBase64,
-          mimeType: videoMimeType || 'video/mp4'
-        }
-      });
-    }
-
     const langName = language === 'zh-TW' ? 'Traditional Chinese (Taiwan)' : 'English';
 
     const userPrompt = `
@@ -111,19 +157,22 @@ app.post('/api/analyze', async (req, res) => {
       - Ensure output is structured as valid JSON.
     `;
 
-    parts.push({ text: userPrompt });
-
     const systemInstruction = `
       IDENTITY: You are a Senior Acquisitions Director at a major independent film distribution company.
       LENS: Acquisitions, pacing, and commercial viability.
       LANGUAGE: You MUST communicate your entire report in ${langName}.
     `;
 
-    FocalPointLogger.info("API_Call", { model: modelName });
+    FocalPointLogger.info("API_Call", { model: modelName, fileUri });
 
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: { parts },
+      contents: {
+        parts: [
+          createPartFromUri(fileUri, fileMimeType || 'video/mp4'),
+          { text: userPrompt }
+        ]
+      },
       config: {
         systemInstruction,
         responseMimeType: "application/json",

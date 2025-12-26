@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AppState, Project, AgentReport } from './types';
 import { PERSONAS } from './constants.tsx';
 import { UploadForm } from './components/UploadForm';
 import { ProcessingQueue } from './components/ProcessingQueue';
 import { ScreeningRoom } from './components/ScreeningRoom';
-import { generateAgentReport, fileToBytes } from './geminiService';
+import { generateAgentReport, uploadVideo, UploadResult } from './geminiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(AppState.IDLE);
@@ -21,27 +21,36 @@ const App: React.FC = () => {
     setState(AppState.ANALYZING);
     setProcessProgress(5);
     
-    let videoBase64: string | undefined;
+    const isZH = p.language === 'zh-TW';
+    let uploadResult: UploadResult | undefined;
     
     if (p.videoFile) {
       try {
-        setStatusMessage("Decoding master asset...");
-        videoBase64 = await fileToBytes(p.videoFile);
-        setProcessProgress(45);
+        setStatusMessage(isZH ? "上傳視頻中..." : "Uploading video to analysis engine...");
+        uploadResult = await uploadVideo(p.videoFile, (progress) => {
+          setProcessProgress(Math.floor(progress * 0.4));
+        });
+        setProcessProgress(40);
+        setStatusMessage(isZH ? "視頻處理完成" : "Video uploaded and processed");
       } catch (e: any) {
-        setErrorMessage(e.message || "Failed to process video file.");
+        setErrorMessage(e.message || "Failed to upload video file.");
         setState(AppState.IDLE);
         return;
       }
     }
 
+    if (!uploadResult) {
+      setErrorMessage("Video file is required for analysis.");
+      setState(AppState.IDLE);
+      return;
+    }
+
     const persona = PERSONAS[0];
-    const isZH = p.language === 'zh-TW';
     setStatusMessage(isZH ? `正在執行深度分析: ${p.title}...` : `Running deep appraisal on ${p.title}...`);
-    setProcessProgress(75);
+    setProcessProgress(60);
     
     try {
-      const report = await generateAgentReport(persona, p, videoBase64);
+      const report = await generateAgentReport(persona, p, uploadResult);
       setReports([report]);
       setProcessProgress(100);
       setTimeout(() => setState(AppState.VIEWING), 600);
