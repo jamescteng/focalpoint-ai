@@ -443,4 +443,19 @@ server.on('error', (err) => {
   console.error('[FocalPoint][FATAL] Server error:', err);
 });
 
+const gracefulShutdown = (signal: string) => {
+  console.log(`[FocalPoint] Received ${signal}, shutting down gracefully...`);
+  server.close(() => {
+    console.log('[FocalPoint] Server closed');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error('[FocalPoint] Forcing shutdown after timeout');
+    process.exit(1);
+  }, 5000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 console.log('[FocalPoint] Server setup complete, waiting for listen callback...');
