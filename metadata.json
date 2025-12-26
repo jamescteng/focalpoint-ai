@@ -1,0 +1,8 @@
+{
+  "name": "FocalPoint AI",
+  "description": "An automated indie film focus group platform where 10 distinct AI personas provide professional and demographic feedback on your screening.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
