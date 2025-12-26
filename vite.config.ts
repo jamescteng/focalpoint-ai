@@ -12,6 +12,18 @@ export default defineConfig(() => {
           '/api': {
             target: 'http://localhost:3001',
             changeOrigin: true,
+            timeout: 600000,
+            proxyTimeout: 600000,
+            configure: (proxy) => {
+              proxy.on('error', (err) => {
+                console.log('[Vite Proxy] Error:', err.message);
+              });
+              proxy.on('proxyReq', (proxyReq, req) => {
+                if (req.url?.includes('/upload')) {
+                  console.log('[Vite Proxy] Starting large file upload...');
+                }
+              });
+            }
           }
         }
       },

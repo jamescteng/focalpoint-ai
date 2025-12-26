@@ -26,6 +26,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
+app.use('/api/upload', (req, res, next) => {
+  req.setTimeout(600000);
+  res.setTimeout(600000);
+  next();
+});
+
 const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
@@ -76,12 +82,25 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-app.post('/api/upload', upload.single('video'), async (req, res) => {
+const handleMulterError = (err: any, req: any, res: any, next: any) => {
+  if (err) {
+    console.error('[FocalPoint][ERROR][Multer]', err);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: `File too large. Maximum size is ${MAX_VIDEO_SIZE_MB}MB.` });
+    }
+    return res.status(500).json({ error: `Upload error: ${err.message}` });
+  }
+  next();
+};
+
+app.post('/api/upload', upload.single('video'), handleMulterError, async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "No video file provided." });
     }
+    
+    console.log('[FocalPoint] Received file, starting Gemini upload...');
 
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
     FocalPointLogger.info("Upload_Start", { name: file.originalname, size: `${fileSizeMB} MB` });
