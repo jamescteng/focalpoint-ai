@@ -2,40 +2,52 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Persona, AgentReport, Project } from "./types";
 
+/**
+ * Validates the runtime environment and project data for security.
+ */
+const validateContext = (project: Project) => {
+  if (!process.env.API_KEY) {
+    throw new Error("SEC_ERR: API Key missing from environment.");
+  }
+  if (!project.title || !project.synopsis) {
+    throw new Error("DATA_ERR: Essential project metadata is missing.");
+  }
+};
+
+/**
+ * Converts file to Base64 with a safety buffer check.
+ */
 export const fileToBytes = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
+    // Debug: Monitor file size ingress
+    console.debug(`[FocalPoint Debug] Processing asset: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+    
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = (reader.result as string).split(',')[1];
+      const result = reader.result as string;
+      if (!result) {
+        return reject(new Error("FILE_ERR: Empty result from reader."));
+      }
+      const base64 = result.split(',')[1];
       resolve(base64);
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("FILE_ERR: Failed to read asset stream."));
     reader.readAsDataURL(file);
   });
 };
 
-/**
- * Isolates and cleans JSON from potentially messy model output.
- */
 const cleanAndParseJSON = (text: string) => {
   try {
-    // Attempt direct parse first
     return JSON.parse(text);
   } catch (e) {
-    // Locate the first '{' and the last '}' to strip markdown or meta-talk
+    console.debug("[FocalPoint Debug] Raw response was not pure JSON, attempting extraction...", text);
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
-    
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
       const cleanJson = text.substring(firstBrace, lastBrace + 1);
-      try {
-        return JSON.parse(cleanJson);
-      } catch (innerError) {
-        console.error("Failed to parse cleaned JSON:", cleanJson);
-        throw innerError;
-      }
+      return JSON.parse(cleanJson);
     }
-    throw new Error("No valid JSON object found in response.");
+    throw new Error("PARSE_ERR: Model response format invalid.");
   }
 };
 
@@ -44,52 +56,53 @@ export const generateAgentReport = async (
   project: Project,
   videoBase64?: string
 ): Promise<AgentReport> => {
+  // Security check
+  validateContext(project);
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-3-flash-preview"; 
 
   const parts: any[] = [];
 
-  // Multimodal Video Part
+  // Add video as inline data
   if (videoBase64) {
     parts.push({
       inlineData: {
-        mimeType: project.videoFile?.type || "video/mp4",
-        data: videoBase64
+        data: videoBase64,
+        mimeType: project.videoFile?.type || 'video/mp4'
       }
     });
   }
 
-  // User Query Part
-  const userPrompt = `
-    Analyze the uploaded film " ${project.title} ".
-    
-    SYNOPSIS: ${project.synopsis}
-    SCRIPT/DIALOGUE CONTEXT: ${project.srtContent.substring(0, 2500)}
+  const langName = project.language === 'zh-TW' ? 'Traditional Chinese (Taiwan)' : 'English';
 
-    TASK:
-    1. Watch the video for technical and emotional quality.
-    2. Provide a 300-word critical summary.
-    3. Identify 10 timestamped highlights/lowlights.
-    4. Answer these specific focus group questions:
+  const userPrompt = `
+    ACTION: Perform an Acquisitions Appraisal for "${project.title}".
+    
+    METADATA:
+    Synopsis: ${project.synopsis}
+    Script Content: ${project.srtContent.substring(0, 4000)}
+
+    OBJECTIVES:
+    1. Critical Executive Summary (approx 300 words).
+    2. Visual/Temporal Log (10 timestamped critical points).
+    3. Direct answers to user inquiries:
     ${project.questions.map((q, i) => `- ${q}`).join('\n')}
     
-    OUTPUT: Provide only valid JSON. Do not include any commentary outside the JSON block.
+    LOCALIZATION:
+    All content (summary, highlights, and answers) MUST be written in ${langName}.
   `;
 
   parts.push({ text: userPrompt });
 
   const systemInstruction = `
-    You are ${persona.name}, ${persona.role}. 
-    PROFILE: ${persona.description}
-    DEMOGRAPHICS: Age ${persona.demographics.age}, Segment: ${persona.demographics.segment}
-    BACKGROUND: ${persona.demographics.background}
-    
-    CRITICAL LENS: You are a professional acquisitions executive. You are looking for flaws, commercial potential, and emotional resonance. 
-    Be honest, specific, and professional. 
-    
-    STRICT JSON RULE: You MUST output valid JSON following the provided schema. 
-    No markdown backticks. No "End of Output" text. No conversational filler.
+    IDENTITY: You are ${persona.name}, ${persona.role}. 
+    BIO: ${persona.description}
+    BEHAVIOR: Sharp, critical, and objective. You analyze for commercial viability and artistic merit.
+    OUTPUT: Valid JSON only. Use the requested language (${langName}) for all text fields.
   `;
+
+  console.debug(`[FocalPoint Debug] Initiating analysis pass for ${persona.name}. Target Language: ${langName}`);
 
   try {
     const response = await ai.models.generateContent({
@@ -97,7 +110,6 @@ export const generateAgentReport = async (
       contents: { parts },
       config: {
         systemInstruction,
-        thinkingConfig: { thinkingBudget: 12000 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -139,11 +151,7 @@ export const generateAgentReport = async (
       ...result
     };
   } catch (error: any) {
-    console.error(`Gemini Service Error:`, error);
-    if (error?.message?.includes("Requested entity was not found")) {
-        throw error;
-    }
-    // Re-throw to show error in UI
-    throw new Error(`Analysis failed for ${persona.name}: ${error.message}`);
+    console.error("[FocalPoint Security/API Error]", error);
+    throw new Error(`Analysis failed: ${error.message}`);
   }
 };

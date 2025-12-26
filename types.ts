@@ -42,6 +42,7 @@ export interface Project {
   videoUrl?: string;
   videoFile?: File;
   questions: string[];
+  language: 'en' | 'zh-TW';
 }
 
 export enum AppState {
