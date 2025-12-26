@@ -20,7 +20,14 @@ const PORT = isProduction ? 5000 : 3001;
 
 console.log('[FocalPoint] Configuring middleware...');
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+
+const jsonParser = express.json({ limit: '50mb' });
+app.use((req, res, next) => {
+  if (req.path === '/api/upload') {
+    return next();
+  }
+  return jsonParser(req, res, next);
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
@@ -31,6 +38,15 @@ app.use('/api/upload', (req, res, next) => {
   res.setTimeout(600000);
   next();
 });
+
+const logMem = (tag: string) => {
+  const m = process.memoryUsage();
+  console.log(`[FocalPoint][MEM][${tag}]`, {
+    rss: Math.round(m.rss / 1024 / 1024) + 'MB',
+    heapUsed: Math.round(m.heapUsed / 1024 / 1024) + 'MB',
+    heapTotal: Math.round(m.heapTotal / 1024 / 1024) + 'MB',
+  });
+};
 
 const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
@@ -259,12 +275,14 @@ const handleMulterError = (err: any, req: any, res: any, next: any) => {
 };
 
 app.post('/api/upload', upload.single('video'), handleMulterError, async (req, res) => {
+  logMem('upload_start');
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "No video file provided." });
     }
     
+    logMem('after_multer');
     console.log('[FocalPoint] Received file from client, starting resumable upload to Gemini...');
 
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
@@ -301,6 +319,7 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
     }
 
     FocalPointLogger.info("Processing_Complete", { state: fileInfo.state });
+    logMem('upload_complete');
 
     res.json({
       fileUri: fileInfo.uri,
@@ -309,6 +328,7 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
     });
 
   } catch (error: any) {
+    logMem('upload_error');
     FocalPointLogger.error("Upload", error);
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
@@ -433,10 +453,13 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[FocalPoint][FATAL] Unhandled Rejection:', reason);
 });
 
+process.on('exit', (code) => {
+  console.error(`[FocalPoint][EXIT] Process exiting with code: ${code}`);
+});
+
 console.log('[FocalPoint] Starting server...');
-const host = isProduction ? '0.0.0.0' : 'localhost';
-const server = app.listen(PORT, host, () => {
-  console.log(`[FocalPoint] Backend server running on http://${host}:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[FocalPoint] Backend server running on http://0.0.0.0:${PORT}`);
 });
 
 server.on('error', (err) => {

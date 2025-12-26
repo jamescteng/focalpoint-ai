@@ -1,0 +1,204 @@
+Based on the log you shared, the failure mode is very specific:
+
+* Vite is running on `:5000`.
+* Your backend *claims* it is running on `http://localhost:3001`.
+* When the frontend starts the upload, the Vite proxy tries to forward to **`127.0.0.1:3001`** and gets **`ECONNREFUSED`** repeatedly.
+
+That means **the backend is not reachable at `127.0.0.1:3001` at that moment**. There are only two realistic root causes:
+
+1. **Backend crashed (process exited) during / right before upload** (your earlier “memory exhaustion” suspicion fits this).
+2. **Backend is listening on a different interface than the proxy is dialing** (common if you bind to `localhost`/IPv6 `::1` and the proxy uses IPv4 `127.0.0.1`).
+
+Your “proposed tasks” (increase memory, watch memory, chunk uploads) are reasonable, but before you invest further in chunking, you should eliminate the *connectivity/binding* possibility, because it can look like an “upload crash” while actually being “backend never reachable from the proxy”.
+
+---
+
+## 1) First, validate whether this is a bind/proxy mismatch (quick, high-signal)
+
+### What to check
+
+**A. Is the backend reachable before any upload?**
+
+Run these while both servers are up:
+
+* `curl http://localhost:3001/health`
+* `curl http://127.0.0.1:3001/health`
+
+If **localhost works but 127.0.0.1 fails**, you have an interface mismatch (likely IPv6 bind).
+
+### Best-practice fix
+
+* Make your backend listen on **all interfaces** during dev:
+
+```js
+server.listen(3001, "0.0.0.0");
+```
+
+* Or change Vite proxy target to match what backend actually binds to:
+
+```js
+// vite.config.ts
+proxy: {
+  "/api": {
+    target: "http://localhost:3001",
+    changeOrigin: true,
+  }
+}
+```
+
+If this is the issue, chunking/memory changes won’t help; your proxy is simply dialing the wrong address.
+
+---
+
+## 2) If the backend is crashing: make the crash observable (you currently have “no log output”)
+
+The log you posted shows *no backend stack trace*, which usually means one of:
+
+* The process is being **killed by the OS** (OOM killer)
+* The process dies from **uncaught exception / unhandled rejection** with insufficient logging
+* The process is still alive but becomes unreachable (less likely if ECONNREFUSED)
+
+### Minimum instrumentation (do this immediately)
+
+Add these handlers at your backend entrypoint:
+
+```js
+process.on("uncaughtException", (err) => {
+  console.error("uncaughtException:", err);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("unhandledRejection:", err);
+});
+process.on("exit", (code) => {
+  console.error("process exit with code:", code);
+});
+```
+
+And add a lightweight memory log around upload handling:
+
+```js
+function logMem(tag) {
+  const m = process.memoryUsage();
+  console.log(tag, {
+    rss: Math.round(m.rss / 1024 / 1024) + "MB",
+    heapUsed: Math.round(m.heapUsed / 1024 / 1024) + "MB",
+  });
+}
+```
+
+Call `logMem("before upload")`, `logMem("after chunk")`, etc.
+
+### Why your “multer uses disk” assumption can still OOM
+
+Even if multer writes to disk, you can still OOM if any of these happen:
+
+* You (or a middleware) still buffer the body (e.g., `express.json()` applied to the upload route)
+* You read chunks into memory again to forward to Gemini (e.g., `fs.readFile` / `arrayBuffer()` on a huge file)
+* You attempt to concatenate chunks in memory (e.g., `Buffer.concat(chunks)`)
+
+---
+
+## 3) Best-practice architecture for large video uploads (what actually works reliably)
+
+You mentioned: chunked upload + Gemini File API. The most reliable pattern is:
+
+### Recommended pattern (production-grade)
+
+**Client → (Resumable upload) → Object Storage (GCS/S3/R2) → Backend references object → Gemini processing**
+
+Why:
+
+* You avoid proxy timeouts and Node memory pressure entirely.
+* You get resumability, retries, integrity checks, and no single huge request through your app server.
+
+Concrete options:
+
+* **tus protocol** (very common): resumable, chunked, proven ecosystem.
+* Cloud vendor’s resumable upload:
+
+  * GCS Resumable Upload
+  * S3 Multipart Upload
+  * Cloudflare R2 multipart
+
+Then your backend just stores metadata and orchestrates Gemini calls.
+
+### If you must keep “Client → Your Backend → Gemini File API”
+
+Then do it as **true streaming**:
+
+* Parse upload stream with **busboy** (or equivalent streaming parser)
+* Write directly to disk (or stream directly to Gemini if the SDK supports it)
+* Never `Buffer.concat`, never `req.body` for files, never `fs.readFile` on the full file
+
+**Critical:** ensure your upload route does **not** use JSON/body parsers.
+
+Example policy:
+
+* `app.use(express.json())` only for non-upload routes
+* upload route uses raw stream parser
+
+---
+
+## 4) Practical guidance on chunk size, timeouts, and proxying
+
+### Chunk sizing
+
+For browser-to-server chunking:
+
+* 4–8 MB chunks are usually a good starting point.
+* Too small → overhead; too big → higher failure cost.
+
+### Timeouts / limits to verify
+
+Even in dev, these can silently kill uploads:
+
+* Node server timeouts
+* Proxy timeouts (Vite, reverse proxies)
+* Request body limits
+
+If you keep the Vite proxy in the path, you’re adding another place for large uploads to fail. Best practice is:
+
+* In dev: **call backend directly from the frontend** (CORS enabled), bypass Vite proxy for `/upload`.
+
+---
+
+## 5) Assessing your “proposed tasks”
+
+From your screenshot, the plan is:
+
+* Allow server to use more memory
+* Watch memory and record errors
+* Break up large file uploads
+* Check large video file works
+
+My view:
+
+1. **Watch memory and record errors** is the highest leverage. You need a real root cause signal.
+2. **Break up large uploads** is good, but only if chunk assembly and forwarding are streaming and disk-based.
+3. **Allow more memory** is a temporary mitigation, not a fix. If you are buffering somewhere, it will fail again at a different size.
+4. **“Check large video file works”** should be formalized as a repeatable test: same file, same chunk size, same route; record RSS + timing.
+
+---
+
+## 6) The most likely diagnosis from *your specific log*
+
+Because the proxy is dialing **127.0.0.1** and you print backend URL as **localhost**, I would treat **bind mismatch** as a serious possibility, not just OOM.
+
+If the backend were crashing due to OOM, you would typically see:
+
+* at least one request reaches backend first
+* then it dies mid-upload
+
+But your Vite log shows the error immediately when starting “large file upload…” with *no backend-side request logging shown*. That can happen either because it crashed instantly, or because it was never reachable from `127.0.0.1` to begin with.
+
+---
+
+## What I would do (in order, minimal wasted time)
+
+1. Add `/health` endpoint and test `localhost` vs `127.0.0.1`. Fix Vite proxy target or backend bind.
+2. Add crash logging + uncaught handlers + memory logging.
+3. Ensure upload route bypasses JSON/body parsers and does not buffer.
+4. If still failing, remove Vite proxy from the upload path (direct backend call with CORS).
+5. Longer-term: move large uploads to object storage with resumable upload; backend orchestrates.
+
+If you paste your `vite.config.*` proxy block and the backend `listen()` line plus the upload route middleware chain (just that file), I can pinpoint which of the two root causes (bind mismatch vs crash) is most likely and tell you the exact change to make.
