@@ -51,6 +51,18 @@ const logMem = (tag: string) => {
 const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
+const MAX_WAIT_MS = 10 * 60 * 1000;
+const INITIAL_DELAY_MS = 1000;
+const BACKOFF_FACTOR = 1.5;
+const MAX_DELAY_MS = 10_000;
+const JITTER_RATIO = 0.2;
+
+function sleepWithJitter(baseDelayMs: number): Promise<void> {
+  const jitter = baseDelayMs * JITTER_RATIO * (Math.random() * 2 - 1);
+  const delay = Math.max(500, baseDelayMs + jitter);
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_VIDEO_SIZE_BYTES }
@@ -298,25 +310,51 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
 
     const ai = getAI();
     let fileInfo = await ai.files.get({ name: uploadedFile.name });
-    let attempts = 0;
-    const maxAttempts = 60;
 
-    while (fileInfo.state === "PROCESSING" && attempts < maxAttempts) {
-      FocalPointLogger.info("Processing", `Waiting for video processing... (${attempts + 1}/${maxAttempts})`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    if (fileInfo.state === "FAILED") {
+      fs.unlink(file.path, () => {});
+      const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+      return res.status(500).json({ 
+        error: `Video processing failed: ${errorMsg}. Please try a different video format.` 
+      });
+    }
+
+    const startTime = Date.now();
+    let attempt = 0;
+    let delayMs = INITIAL_DELAY_MS;
+
+    while (fileInfo.state === "PROCESSING") {
+      const elapsedMs = Date.now() - startTime;
+
+      if (elapsedMs > MAX_WAIT_MS) {
+        fs.unlink(file.path, () => {});
+        return res.status(500).json({ 
+          error: `Video processing timed out after ${Math.round(elapsedMs / 1000)}s. Please try a shorter or smaller video.` 
+        });
+      }
+
+      FocalPointLogger.info(
+        "Processing",
+        `Waiting for video processing… attempt=${attempt + 1}, elapsed=${Math.round(elapsedMs / 1000)}s, nextDelay=${Math.round(delayMs)}ms`
+      );
+
+      await sleepWithJitter(delayMs);
+
       fileInfo = await ai.files.get({ name: uploadedFile.name });
-      attempts++;
+
+      if (fileInfo.state === "FAILED") {
+        fs.unlink(file.path, () => {});
+        const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+        return res.status(500).json({ 
+          error: `Video processing failed: ${errorMsg}. Please try a different video format.` 
+        });
+      }
+
+      delayMs = Math.min(delayMs * BACKOFF_FACTOR, MAX_DELAY_MS);
+      attempt++;
     }
 
     fs.unlink(file.path, () => {});
-
-    if (fileInfo.state === "FAILED") {
-      return res.status(500).json({ error: "Video processing failed. Please try a different video format." });
-    }
-
-    if (fileInfo.state === "PROCESSING") {
-      return res.status(500).json({ error: "Video processing timed out. Please try a shorter or smaller video." });
-    }
 
     FocalPointLogger.info("Processing_Complete", { state: fileInfo.state });
     logMem('upload_complete');

@@ -1,0 +1,121 @@
+Gemini polling and quota tuning (scale)
+4.1 Polling strategy: exponential backoff + jitter (recommended)
+
+Instead of fixed “60 tries”, implement:
+
+Start delay: 1s
+
+Backoff factor: 1.5
+
+Max delay: 10s
+
+Add jitter: ±20%
+
+Hard timeout: 5–10 minutes depending on expected video sizes
+
+Pseudo:
+
+attempt 1: 1s
+
+2: 1.5s
+
+3: 2.2s
+
+4: 3.3s
+
+…
+
+cap at 10s
+
+This reduces API calls per upload and improves reliability under load.
+
+4.2 Global concurrency limits (avoid quota spikes)
+
+You need two separate rate controls:
+
+A) Upload concurrency
+
+Limit number of parallel Gemini uploads (e.g. 2–5 per worker instance).
+
+B) Poll concurrency
+
+Polling calls are lightweight but can stampede.
+Use a shared limiter per project (e.g. Bottleneck in Node) and cap QPS.
+
+Concrete starting point:
+
+maxConcurrentGeminiUploads = 2
+
+maxConcurrentGeminiPolls = 10
+
+pollQPS = 5–10 total across your system (depending on quota)
+
+4.3 Idempotency + resume
+
+Store gemini_file_name once created.
+If worker crashes, it restarts and continues polling using stored file name rather than re-uploading.
+
+4.4 Deduplicate processing
+
+If the same file is uploaded twice (same hash), you can reuse the same Gemini file or reuse the same analysis results (depending on your product logic). At minimum:
+
+compute sha256 of the source (storage-level metadata)
+
+if job with same hash already processed, reuse.
+
+5) Reliability patterns your dev should implement
+5.1 Clear retry rules (do not “retry everything”)
+
+Retries should apply to:
+
+network timeouts
+
+429 / quota-related responses
+
+5xx transient errors
+
+Do NOT blindly retry:
+
+4xx validation errors
+
+file processing FAILED states (surface and stop)
+
+5.2 Worker crash safety
+
+Use:
+
+“at least once” jobs with idempotent steps
+
+store progress updates frequently
+
+persist gemini_file_name immediately after upload finalize
+
+5.3 Timeouts
+
+Set explicit timeouts:
+
+upload step timeout (e.g. 15 min depending on size)
+
+processing wait timeout (e.g. 10 min)
+
+analysis timeout (e.g. 2–5 min)
+
+5.4 Observability
+
+At minimum log:
+
+jobId
+
+userId
+
+fileSize
+
+chunk size
+
+Gemini file id
+
+processing time distribution
+
+poll attempts and final state
+
+Later: add structured logs (JSON) + OpenTelemetry.

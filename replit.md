@@ -32,10 +32,17 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 1. Frontend uploads video file to `/api/upload` endpoint
 2. Backend uses multer to save file to disk (not memory)
 3. Backend streams file to Gemini in 16MB chunks using resumable upload protocol
-4. Backend polls Gemini until video processing completes (up to 5 minutes)
+4. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
 5. Frontend receives file URI, sends to `/api/analyze` with project metadata
 6. Backend uses `createPartFromUri` to reference video in Gemini request
 7. Maximum video size: 2GB (enforced on frontend and backend)
+
+### Polling Strategy
+- Initial delay: 1 second
+- Backoff factor: 1.5x per attempt
+- Maximum delay: 10 seconds (capped)
+- Jitter: ±20% randomization (500ms floor)
+- Hard timeout: 10 minutes
 
 ### Analysis Response Schema
 The `/api/analyze` endpoint returns a structured report with:
@@ -64,6 +71,7 @@ Server-side validation enforces:
 Autoscale deployment - builds frontend with Vite, serves via Express backend.
 
 ## Recent Changes
+- Implemented exponential backoff polling with jitter for Gemini processing status
 - Implemented resumable upload with 16MB chunks and offset reconciliation
 - Fixed server binding to 0.0.0.0 for reliable Vite proxy connection
 - Bypassed express.json() for upload route to prevent memory buffering
