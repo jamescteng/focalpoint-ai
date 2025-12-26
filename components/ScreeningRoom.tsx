@@ -1,11 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Project, AgentReport } from '../types';
+import { Project, AgentReport, Persona } from '../types';
 import { PERSONAS } from '../constants.tsx';
 import { Button } from './Button';
 
 interface ScreeningRoomProps {
   project: Project;
   reports: AgentReport[];
+  availablePersonas: Persona[];
+  onAddPersona: (personaId: string) => void;
+  isAnalyzing: boolean;
+  analyzingPersonaId: string | null;
+  statusMessage: string;
 }
 
 const getSeverityColor = (severity: number) => {
@@ -35,10 +40,19 @@ const getCategoryIcon = (category: string) => {
   return icons[category] || '📌';
 };
 
-export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ project, reports }) => {
+export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ 
+  project, 
+  reports, 
+  availablePersonas,
+  onAddPersona,
+  isAnalyzing,
+  analyzingPersonaId,
+  statusMessage
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeTab, setActiveTab] = useState<'highlights' | 'concerns'>('highlights');
   const [activeReportIndex, setActiveReportIndex] = useState(0);
+  const [showAddPersona, setShowAddPersona] = useState(false);
   
   const activeReport = reports[activeReportIndex];
   const activePersona = PERSONAS.find(p => p.id === activeReport?.personaId) || PERSONAS[0];
@@ -48,6 +62,11 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ project, reports }
       videoRef.current.currentTime = seconds;
       videoRef.current.play();
     }
+  };
+
+  const handleAddPersona = (personaId: string) => {
+    setShowAddPersona(false);
+    onAddPersona(personaId);
   };
 
   if (!activeReport || !activePersona) {
@@ -62,38 +81,90 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ project, reports }
           <div className="flex items-center gap-3 mt-1">
             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
             <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">
-              Appraisal Finalized • {reports.length} Reviewer{reports.length > 1 ? 's' : ''}
+              {reports.length} Report{reports.length > 1 ? 's' : ''} Generated
             </p>
           </div>
         </div>
         <Button variant="outline" size="md" className="rounded-full px-8 border-slate-200" onClick={() => window.location.reload()}>New Screening</Button>
       </header>
 
-      {reports.length > 1 && (
-        <div className="border-b border-slate-100 px-8 py-4 bg-white flex gap-3 overflow-x-auto">
-          {reports.map((report, index) => {
-            const persona = PERSONAS.find(p => p.id === report.personaId);
-            if (!persona) return null;
-            const isActive = index === activeReportIndex;
-            return (
-              <button
-                key={report.personaId}
-                onClick={() => setActiveReportIndex(index)}
-                className={`flex items-center gap-3 px-5 py-3 rounded-full transition-all whitespace-nowrap ${
-                  isActive
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <img
-                  src={persona.avatar}
-                  alt={persona.name}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <span className="font-bold text-sm">{persona.name}</span>
-              </button>
-            );
-          })}
+      <div className="border-b border-slate-100 px-8 py-4 bg-white flex items-center gap-3 overflow-x-auto">
+        {reports.map((report, index) => {
+          const persona = PERSONAS.find(p => p.id === report.personaId);
+          if (!persona) return null;
+          const isActive = index === activeReportIndex;
+          return (
+            <button
+              key={report.personaId}
+              onClick={() => setActiveReportIndex(index)}
+              className={`flex items-center gap-3 px-5 py-3 rounded-full transition-all whitespace-nowrap ${
+                isActive
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <img
+                src={persona.avatar}
+                alt={persona.name}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+              <span className="font-bold text-sm">{persona.name}</span>
+            </button>
+          );
+        })}
+
+        {isAnalyzing && analyzingPersonaId && (
+          <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-blue-50 text-blue-600 whitespace-nowrap">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <span className="font-bold text-sm">Analyzing...</span>
+          </div>
+        )}
+
+        {availablePersonas.length > 0 && !isAnalyzing && (
+          <div className="relative">
+            <button
+              onClick={() => setShowAddPersona(!showAddPersona)}
+              className="flex items-center gap-2 px-5 py-3 rounded-full border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-500 hover:text-slate-700 transition-all whitespace-nowrap"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span className="font-bold text-sm">Add Reviewer</span>
+            </button>
+
+            {showAddPersona && (
+              <div className="absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 min-w-[280px]">
+                {availablePersonas.map(persona => (
+                  <button
+                    key={persona.id}
+                    onClick={() => handleAddPersona(persona.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-all text-left"
+                  >
+                    <img
+                      src={persona.avatar}
+                      alt={persona.name}
+                      className="w-10 h-10 rounded-lg object-cover"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-900">{persona.name}</p>
+                      <p className="text-xs text-slate-500">{persona.role}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {isAnalyzing && statusMessage && (
+        <div className="px-8 py-3 bg-blue-50 border-b border-blue-100">
+          <p className="text-blue-600 text-sm font-medium text-center animate-pulse">{statusMessage}</p>
         </div>
       )}
 

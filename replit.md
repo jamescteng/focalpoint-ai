@@ -34,9 +34,19 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 2. Backend uses multer to save file to disk (not memory)
 3. Backend streams file to Gemini in 16MB chunks using resumable upload protocol
 4. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
-5. Frontend receives file URI, sends to `/api/analyze` with project metadata and persona IDs
+5. Frontend receives file URI, stores it in state for reuse across persona analyses
 6. Backend uses `createPartFromUri` to reference video in Gemini request
 7. Maximum video size: 2GB (enforced on frontend and backend)
+
+### On-Demand Persona Flow
+The app uses an on-demand approach for cost efficiency:
+1. User selects ONE persona initially and starts analysis
+2. Video is uploaded once, fileUri is cached in App state
+3. User views the first report
+4. User can click "Add Reviewer" to analyze with additional personas
+5. Additional analyses reuse the cached fileUri (no re-upload)
+6. All generated reports are cached - switching between them is instant
+7. State is reset when user starts a completely new screening
 
 ### Multi-Persona Architecture
 - Persona configurations stored in `/server/personas.ts`
@@ -49,9 +59,6 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 - Available personas:
   - `acquisitions_director` (Sarah Chen) - Commercial viability, pacing, marketability focus
   - `cultural_editor` (Maya Lin) - Cultural relevance, emotional resonance, authorship focus
-- Frontend allows selecting one or more personas
-- Backend runs selected personas in parallel using Promise.all
-- Cost scales linearly with persona count (each persona = one Gemini API call)
 - Error isolation: individual persona failures don't block other results
 
 ### API Endpoints
@@ -96,10 +103,8 @@ Server-side validation per persona:
 Autoscale deployment - builds frontend with Vite, serves via Express backend.
 
 ## Recent Changes
-- Implemented multi-persona architecture with parallel execution
-- Added persona selection UI in UploadForm
-- Added persona tabs in ScreeningRoom for switching between reviewer reports
-- Created persona registry in server/personas.ts with full prompt configurations
-- Added /api/personas endpoint to list available personas
-- Updated /api/analyze to accept personaIds array and return array of results
-- Error isolation prevents single persona failure from blocking others
+- Implemented on-demand persona flow (select one first, add more after viewing)
+- Video uploads only once per screening session, fileUri is cached
+- Added "Add Reviewer" button in ScreeningRoom for incremental persona analysis
+- Reports are cached in state - switching between personas is instant
+- State properly resets when starting a new screening

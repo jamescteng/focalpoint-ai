@@ -4,7 +4,7 @@ import { PERSONAS } from './constants.tsx';
 import { UploadForm } from './components/UploadForm';
 import { ProcessingQueue } from './components/ProcessingQueue';
 import { ScreeningRoom } from './components/ScreeningRoom';
-import { generateAgentReports, uploadVideo, UploadResult } from './geminiService';
+import { analyzeWithPersona, uploadVideo, UploadResult } from './geminiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(AppState.IDLE);
@@ -13,22 +13,27 @@ const App: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processProgress, setProcessProgress] = useState(0);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [analyzingPersonaId, setAnalyzingPersonaId] = useState<string | null>(null);
 
   const startAnalysis = async (p: Project) => {
     setErrorMessage(null);
     setProject(p);
     setState(AppState.ANALYZING);
     setProcessProgress(5);
+    setReports([]);
+    setUploadResult(null);
     
     const isZH = p.language === 'zh-TW';
-    let uploadResult: UploadResult | undefined;
+    let currentUploadResult: UploadResult | null = null;
     
     if (p.videoFile) {
       try {
         setStatusMessage(isZH ? "上傳視頻中..." : "Uploading video to analysis engine...");
-        uploadResult = await uploadVideo(p.videoFile, (progress) => {
+        currentUploadResult = await uploadVideo(p.videoFile, (progress) => {
           setProcessProgress(Math.floor(progress * 0.4));
         });
+        setUploadResult(currentUploadResult);
         setProcessProgress(40);
         setStatusMessage(isZH ? "視頻處理完成" : "Video uploaded and processed");
       } catch (e: any) {
@@ -38,40 +43,71 @@ const App: React.FC = () => {
       }
     }
 
-    if (!uploadResult) {
+    if (!currentUploadResult) {
       setErrorMessage("Video file is required for analysis.");
       setState(AppState.IDLE);
       return;
     }
 
-    const personaCount = p.selectedPersonaIds.length;
-    const personaNames = p.selectedPersonaIds.map(id => {
-      const persona = PERSONAS.find(p => p.id === id);
-      return persona?.name || id;
-    }).join(', ');
-
+    const personaId = p.selectedPersonaIds[0];
+    const persona = PERSONAS.find(per => per.id === personaId);
+    
+    setAnalyzingPersonaId(personaId);
     setStatusMessage(
       isZH 
-        ? `正在執行深度分析 (${personaCount} 位評審): ${p.title}...` 
-        : `Running deep appraisal with ${personaCount} reviewer${personaCount > 1 ? 's' : ''} (${personaNames})...`
+        ? `正在執行深度分析: ${persona?.name || personaId}...` 
+        : `Running deep appraisal with ${persona?.name || personaId}...`
     );
     setProcessProgress(60);
     
     try {
-      const reportResults = await generateAgentReports(p, uploadResult);
-      setReports(reportResults);
+      const report = await analyzeWithPersona(p, currentUploadResult, personaId);
+      setReports([report]);
       setProcessProgress(100);
+      setAnalyzingPersonaId(null);
       setTimeout(() => setState(AppState.VIEWING), 600);
     } catch (err: any) {
       console.error("[FocalPoint] Pipeline Error:", err);
       setErrorMessage(err.message || "The appraisal engine encountered a technical fault.");
+      setAnalyzingPersonaId(null);
       setState(AppState.IDLE);
+    }
+  };
+
+  const addPersonaReport = async (personaId: string) => {
+    if (!project || !uploadResult) return;
+    if (reports.some(r => r.personaId === personaId)) return;
+
+    const isZH = project.language === 'zh-TW';
+    const persona = PERSONAS.find(p => p.id === personaId);
+    
+    setAnalyzingPersonaId(personaId);
+    setStatusMessage(
+      isZH 
+        ? `正在分析: ${persona?.name || personaId}...` 
+        : `Analyzing with ${persona?.name || personaId}...`
+    );
+
+    try {
+      const report = await analyzeWithPersona(project, uploadResult, personaId);
+      setReports(prev => [...prev, report]);
+      setAnalyzingPersonaId(null);
+      setStatusMessage('');
+    } catch (err: any) {
+      console.error("[FocalPoint] Additional Persona Error:", err);
+      setAnalyzingPersonaId(null);
+      setStatusMessage('');
+      alert(err.message || "Failed to generate additional report.");
     }
   };
 
   const selectedPersonas = project 
     ? PERSONAS.filter(p => project.selectedPersonaIds.includes(p.id))
     : PERSONAS.slice(0, 1);
+
+  const availablePersonasToAdd = PERSONAS.filter(
+    p => !reports.some(r => r.personaId === p.id)
+  );
 
   return (
     <div className="min-h-screen bg-[#fdfdfd] text-slate-900 selection:bg-slate-900 selection:text-white font-sans overflow-x-hidden">
@@ -109,7 +145,15 @@ const App: React.FC = () => {
 
         {state === AppState.VIEWING && project && reports.length > 0 && (
           <div className="animate-in fade-in duration-1000">
-            <ScreeningRoom project={project} reports={reports} />
+            <ScreeningRoom 
+              project={project} 
+              reports={reports}
+              availablePersonas={availablePersonasToAdd}
+              onAddPersona={addPersonaReport}
+              isAnalyzing={analyzingPersonaId !== null}
+              analyzingPersonaId={analyzingPersonaId}
+              statusMessage={statusMessage}
+            />
           </div>
         )}
       </div>

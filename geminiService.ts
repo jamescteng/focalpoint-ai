@@ -1,4 +1,4 @@
-import { Persona, AgentReport, Project } from "./types";
+import { AgentReport, Project } from "./types";
 
 const FocalPointLogger = {
   info: (stage: string, data: any) => console.debug(`[FocalPoint][INFO][${stage}]`, data),
@@ -68,10 +68,11 @@ export const uploadVideo = async (
   return result;
 };
 
-export const generateAgentReports = async (
+export const analyzeWithPersona = async (
   project: Project,
-  uploadResult: UploadResult
-): Promise<AgentReport[]> => {
+  uploadResult: UploadResult,
+  personaId: string
+): Promise<AgentReport> => {
   if (!project.title || project.title.trim().length === 0) {
     throw new Error("DATA_ERR_01: Invalid Project Metadata.");
   }
@@ -80,11 +81,7 @@ export const generateAgentReports = async (
     throw new Error("DATA_ERR_02: Video must be uploaded first.");
   }
 
-  const personaIds = project.selectedPersonaIds && project.selectedPersonaIds.length > 0 
-    ? project.selectedPersonaIds 
-    : ['acquisitions_director'];
-
-  FocalPointLogger.info("API_Call", { personas: personaIds, fileUri: uploadResult.fileUri });
+  FocalPointLogger.info("API_Call", { persona: personaId, fileUri: uploadResult.fileUri });
 
   try {
     const response = await fetch('/api/analyze', {
@@ -100,7 +97,7 @@ export const generateAgentReports = async (
         language: project.language,
         fileUri: uploadResult.fileUri,
         fileMimeType: uploadResult.fileMimeType,
-        personaIds
+        personaIds: [personaId]
       })
     });
 
@@ -110,25 +107,21 @@ export const generateAgentReports = async (
     }
 
     const data: AnalyzeResponse = await response.json();
-    FocalPointLogger.info("API_Success", `Received ${data.results.length} persona reports`);
+    FocalPointLogger.info("API_Success", `Received ${data.results.length} persona report(s)`);
     
-    const reports: AgentReport[] = data.results
-      .filter(r => r.status === 'success' && r.report)
-      .map(r => ({
-        personaId: r.personaId,
-        executive_summary: r.report!.executive_summary,
-        highlights: r.report!.highlights,
-        concerns: r.report!.concerns,
-        answers: r.report!.answers,
-        validationWarnings: r.validationWarnings
-      }));
-
-    if (reports.length === 0) {
-      const errors = data.results.filter(r => r.status === 'error').map(r => r.error).join('; ');
-      throw new Error(`All persona analyses failed: ${errors}`);
+    const result = data.results[0];
+    if (!result || result.status !== 'success' || !result.report) {
+      throw new Error(result?.error || 'Analysis failed');
     }
 
-    return reports;
+    return {
+      personaId: result.personaId,
+      executive_summary: result.report.executive_summary,
+      highlights: result.report.highlights,
+      concerns: result.report.concerns,
+      answers: result.report.answers,
+      validationWarnings: result.validationWarnings
+    };
   } catch (error: any) {
     FocalPointLogger.error("API_Call", error);
     throw new Error(`Screening failed: ${error.message}`);

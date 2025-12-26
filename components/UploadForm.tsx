@@ -14,12 +14,11 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [language, setLanguage] = useState<'en' | 'zh-TW'>('en');
   const [questions, setQuestions] = useState<string[]>(INITIAL_QUESTIONS);
-  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(['acquisitions_director']);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('acquisitions_director');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoFile) return;
-    if (selectedPersonaIds.length === 0) return;
 
     onStart({
       id: Math.random().toString(36).substr(2, 9),
@@ -30,16 +29,8 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
       videoUrl: URL.createObjectURL(videoFile),
       questions,
       language,
-      selectedPersonaIds
+      selectedPersonaIds: [selectedPersonaId]
     });
-  };
-
-  const togglePersona = (personaId: string) => {
-    setSelectedPersonaIds(prev => 
-      prev.includes(personaId)
-        ? prev.filter(id => id !== personaId)
-        : [...prev, personaId]
-    );
   };
 
   const addQuestion = () => setQuestions([...questions, ""]);
@@ -168,18 +159,18 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
         <div className="space-y-8">
           <div className="flex items-center gap-3">
             <span className="text-sm font-black bg-slate-900 text-white px-3 py-1 rounded-lg">05</span>
-            <label className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900">Select Reviewers</label>
+            <label className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900">Choose Your Reviewer</label>
           </div>
-          <p className="text-slate-500 text-sm -mt-4">Choose one or more professional perspectives for your focus group. Each reviewer adds an API call.</p>
+          <p className="text-slate-500 text-sm -mt-4">Select a professional perspective. You can add more reviewers after seeing the first report.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {PERSONAS.map((persona) => {
-              const isSelected = selectedPersonaIds.includes(persona.id);
+              const isSelected = selectedPersonaId === persona.id;
               return (
                 <button
                   key={persona.id}
                   type="button"
-                  onClick={() => togglePersona(persona.id)}
+                  onClick={() => setSelectedPersonaId(persona.id)}
                   className={`flex items-start gap-4 p-6 rounded-2xl border-2 transition-all text-left ${
                     isSelected
                       ? 'border-slate-900 bg-slate-50'
@@ -209,9 +200,6 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
               );
             })}
           </div>
-          {selectedPersonaIds.length === 0 && (
-            <p className="text-rose-500 text-sm">Please select at least one reviewer.</p>
-          )}
         </div>
 
         <div className="space-y-8">
@@ -249,7 +237,6 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
             type="submit" 
             className="w-full py-10 rounded-[2.5rem] text-3xl font-serif italic shadow-2xl hover:translate-y-[-4px]" 
             size="lg"
-            disabled={selectedPersonaIds.length === 0}
           >
             Begin Professional Appraisal
           </Button>
