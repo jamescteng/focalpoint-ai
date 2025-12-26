@@ -40,7 +40,7 @@ export interface QuestionAnswer {
 
 export interface AgentReport {
   personaId: string;
-  summary: string;
+  executive_summary: string;
   highlights: Highlight[];
   concerns: Concern[];
   answers: QuestionAnswer[];

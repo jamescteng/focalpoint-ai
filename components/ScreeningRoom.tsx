@@ -157,7 +157,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ project, reports }
           <section className="bg-slate-50 p-12 md:p-16 rounded-[3.5rem] border border-slate-100">
             <h3 className="text-2xl font-serif text-slate-900 mb-10 border-b border-slate-200 pb-8">Executive Summary</h3>
             <div className="max-w-none text-slate-700 leading-[2.1] text-xl font-light">
-              {activeReport.summary.split('\n').map((para, i) => <p key={i} className="mb-8">{para}</p>)}
+              {(activeReport.executive_summary || (activeReport as any).summary || '').split('\n').map((para, i) => <p key={i} className="mb-8">{para}</p>)}
             </div>
           </section>
         </div>

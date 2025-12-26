@@ -393,44 +393,85 @@ app.post('/api/analyze', async (req, res) => {
     const langName = language === 'zh-TW' ? 'Traditional Chinese (Taiwan)' : 'English';
 
     const userPrompt = `
-      INSTRUCTIONS: Perform a professional indie film focus group appraisal.
-      FILM: "${title}"
-      SYNOPSIS: ${synopsis}
-      CONTEXTUAL DIALOGUE: ${srtContent.substring(0, 5000)}
+INSTRUCTIONS: Perform a professional indie film focus group appraisal from an acquisitions perspective.
 
-      GOALS:
-      1. Executive critical summary (~300-500 words).
-      2. Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
-      3. Direct responses to user-defined research objectives:
-      ${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
+FILM: "${title}"
+SYNOPSIS: ${synopsis}
+CONTEXTUAL DIALOGUE: ${srtContent.substring(0, 5000)}
 
-      === HIGHLIGHTS vs CONCERNS DEFINITIONS ===
-      
-      HIGHLIGHT = moments that increase audience engagement, clarity, emotional impact, or commercial/festival appeal.
-      For each highlight, explain WHY it works and categorize it (emotion, craft, clarity, or marketability).
+GOALS
 
-      CONCERN = moments that reduce engagement or clarity, create confusion, feel slow, undermine credibility, or hurt marketability.
-      Examples: pacing drag, unclear stakes, tonal mismatch, weak performance beat, audio/visual distraction, narrative logic gap.
-      
-      === CONCERN REQUIREMENTS ===
-      - Each concern MUST include: issue description, impact explanation, and severity (1-5 where 3 = meaningful problem).
-      - At least 3 concerns MUST have severity >= 3.
-      - Categorize each concern: pacing, clarity, character, audio, visual, tone, or marketability.
-      - Include a suggested fix for each concern.
-      - Do NOT soften criticism. Write concerns as a professional acquisitions/notes memo.
-      - Use timestamps and describe the specific moment as evidence.
+Executive critical summary (300–500 words).
 
-      CONSTRAINTS:
-      - Respond strictly in ${langName}.
-      - Ensure output is structured as valid JSON.
-      - Return EXACTLY 5 highlights and EXACTLY 5 concerns.
+Write this as an internal acquisitions decision memo.
+
+Prioritize risks, weaknesses, and decision-relevant issues over compliments.
+
+Assume the reader has limited time and is evaluating whether to proceed.
+
+Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
+
+Direct responses to user-defined research objectives:
+${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
+
+=== HIGHLIGHTS vs CONCERNS DEFINITIONS ===
+
+HIGHLIGHT
+Moments that clearly increase audience engagement, clarity, emotional impact, or commercial/festival appeal.
+For each highlight, explain WHY it works and categorize it as one of the following:
+emotion, craft, clarity, or marketability.
+
+CONCERN
+Moments that clearly reduce engagement or clarity, create confusion, feel slow, undermine credibility, or hurt marketability.
+
+Examples include (but are not limited to):
+pacing drag, unclear stakes, tonal mismatch, weak performance beats, audio/visual distractions, or narrative logic gaps.
+
+=== CONCERN REQUIREMENTS (STRICT) ===
+
+Each concern MUST include:
+
+A clear issue description
+
+A clear impact explanation (explicitly state what the audience or buyer loses: attention, clarity, trust, emotional investment, or sales potential)
+
+A severity score from 1–5 (where 3 = a meaningful problem)
+
+At least 3 concerns MUST have severity ≥ 3
+
+Categorize each concern as one of the following:
+pacing, clarity, character, audio, visual, tone, or marketability
+
+Include a suggested fix for each concern
+
+Use timestamps and describe the specific moment as evidence
+
+Do NOT soften criticism.
+
+Avoid hedging language such as "might," "could," "may," "some viewers," or "slightly."
+
+Do NOT balance concerns with praise. A concern should describe only the problem and its consequences.
+
+Write concerns as professional internal acquisitions notes, not marketing copy.
+
+CONSTRAINTS
+
+Respond strictly in ${langName}.
+
+Ensure the output is structured as valid JSON only.
+
+Return EXACTLY 5 highlights and EXACTLY 5 concerns.
+
+Do not include any explanatory text outside the JSON structure.
     `;
 
     const systemInstruction = `
-      IDENTITY: You are a Senior Acquisitions Director at a major independent film distribution company.
-      LENS: Acquisitions, pacing, and commercial viability.
-      LANGUAGE: You MUST communicate your entire report in ${langName}.
-      CRITICAL STANCE: You are known for your honest, no-nonsense assessments. You do not sugarcoat problems. When you identify a concern, you state it directly with its impact and severity. Your job is to help filmmakers improve their work, not to make them feel good.
+IDENTITY: You are a Senior Acquisitions Director at a major independent film distribution company.
+LENS: Acquisitions decision-making, pacing, and commercial viability.
+LANGUAGE: You MUST communicate your entire report in ${langName}.
+
+CRITICAL STANCE:
+You are known for your honest, no-nonsense assessments. You do not sugarcoat problems or balance criticism with praise. When you identify a concern, you state it directly, explain its impact, and assess its severity. Your job is to help filmmakers improve their work and to inform acquisition decisions—not to make them feel good.
     `;
 
     FocalPointLogger.info("API_Call", { model: modelName, fileUri });
@@ -449,7 +490,7 @@ app.post('/api/analyze', async (req, res) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            summary: { type: Type.STRING },
+            executive_summary: { type: Type.STRING },
             highlights: {
               type: Type.ARRAY,
               items: {
@@ -492,7 +533,7 @@ app.post('/api/analyze', async (req, res) => {
               }
             }
           },
-          required: ["summary", "highlights", "concerns", "answers"]
+          required: ["executive_summary", "highlights", "concerns", "answers"]
         }
       }
     });
