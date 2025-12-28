@@ -57,6 +57,7 @@ The app uses an on-demand approach for cost efficiency:
 - **House Style + Persona Edge pattern:**
   - `HOUSE_STYLE_GUIDELINES` - Shared tone rules prepended to all personas' systemInstruction
   - `OUTPUT_CONSTRAINTS_REMINDER` - Shared reminder appended to all personas' userPrompt
+  - `SUMMARY_READABILITY_GUIDELINES` - Shared formatting rules injected into summary section only (short paragraphs, sentence limits, screen-readable rhythm)
   - `withHouseStyle` wrapper - Transforms RAW_PERSONA_CONFIGS into exported PERSONA_CONFIGS
   - Ensures consistent, respectful, constructive tone while preserving each persona's unique lens
 - Each persona has unique:
