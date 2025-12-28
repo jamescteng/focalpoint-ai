@@ -1,0 +1,70 @@
+Add a shared guideline block + wrapper helpers
+
+Put this near the top of personas.ts (above PERSONA_CONFIGS):
+
+const HOUSE_STYLE_GUIDELINES = (langName: string) => `
+HOUSE STYLE (applies to all personas):
+- Communicate with respect and professional restraint. No insults, ridicule, or dismissive language.
+- Be candid and specific: when something is a problem, state it clearly with evidence and impact.
+- Phrase recommendations constructively (e.g., "Consider tightening…", "It may help to…", "Clarify…").
+- Avoid absolute judgments ("this is terrible," "this fails," "no one will care").
+- Do not moralize the filmmaker’s choices; focus on viewer experience and outcomes.
+- Keep the goal: help the filmmaker strengthen the work and make it clearer to the intended audience.
+- LANGUAGE: You MUST communicate your entire report in ${langName}.
+`;
+
+const OUTPUT_CONSTRAINTS_REMINDER = (langName: string) => `
+HOUSE STYLE REMINDER:
+- Keep tone constructive and specific while remaining honest.
+- Do not add any text outside valid JSON.
+- Respond strictly in ${langName}.
+`;
+
+function withHouseStyle(persona: PersonaConfig): PersonaConfig {
+  return {
+    ...persona,
+    systemInstruction: (langName: string) => {
+      const base = persona.systemInstruction(langName).trim();
+      const house = HOUSE_STYLE_GUIDELINES(langName).trim();
+      // House style first, then persona-specific instruction
+      return `${house}\n\n${base}\n`;
+    },
+    userPrompt: (params) => {
+      const base = persona.userPrompt(params).trim();
+      const reminder = OUTPUT_CONSTRAINTS_REMINDER(params.langName).trim();
+      // Add at the end so it doesn't interfere with your persona rubric structure
+      return `${base}\n\n${reminder}\n`;
+    }
+  };
+}
+
+
+Why this works
+
+It guarantees the house style is always present.
+
+It does not require you to touch every persona prompt block.
+
+It keeps the persona’s distinctive rubric intact because the reminder goes at the end.
+
+2) Apply the wrapper once when exporting configs
+
+Change:
+
+export const PERSONA_CONFIGS: PersonaConfig[] = [
+  { ... },
+  ...
+];
+
+
+to:
+
+const RAW_PERSONA_CONFIGS: PersonaConfig[] = [
+  { ... },
+  ...
+];
+
+export const PERSONA_CONFIGS: PersonaConfig[] = RAW_PERSONA_CONFIGS.map(withHouseStyle);
+
+
+Everything else (including getPersonaById, getAllPersonas) stays the same.

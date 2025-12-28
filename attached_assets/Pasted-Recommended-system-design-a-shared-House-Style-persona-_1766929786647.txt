@@ -1,0 +1,123 @@
+Recommended system design: a shared “House Style” + persona-specific “Edge”
+
+Think of tone as two layers:
+
+House Style (global, always on): respectful, constructive, filmmaker-safe
+
+Persona Edge (local): what makes this lens distinct (harsh vs warm vs technical)
+
+This gives you consistency without homogenizing.
+
+What I would change in your proposal
+1) Don’t frame it as “softer across all reviewers”
+
+Instead frame it as “respectful, constructive house style across all reviewers”.
+
+Because “softer” implies reducing critical content. What you actually want is:
+
+keep the honesty
+
+remove unnecessarily sharp phrasing
+
+reduce defensiveness
+
+That’s different.
+
+2) Implement it as a top-level prefix, not copied into every persona
+
+Option 1 (shared constant) is the right choice, but I’d implement it as:
+
+HOUSE_STYLE_SYSTEM_PREFIX (applies to all personas)
+
+persona.systemInstruction appended after it
+
+and/or a small “house style” block inserted into userPrompt
+
+This prevents drift and reduces maintenance.
+
+3) Preserve persona differentiation with bounded severity language
+
+For the acquisitions persona, you can still keep:
+
+severity scoring
+
+direct impact statements
+
+decision memo framing
+
+But you should remove:
+
+“do not sugarcoat”
+
+“not to make them feel good”
+
+Those phrases trigger defensiveness. You can get the same critical output with more professional language.
+
+Concrete rewrite of your draft (cleaner, less “ask for confirmation,” more actionable)
+
+Here is a version you can use internally with your dev/team. It avoids sounding like you’re asking for approval and just states the implementation plan.
+
+Revised internal note (ready to paste)
+
+Tone is currently controlled per persona in server/personas.ts via:
+
+systemInstruction (persona voice / stance)
+
+userPrompt (how to phrase criticism and structure output)
+
+Because each persona has a distinct voice, the tone can vary sharply (e.g., acquisitions is blunt; cultural editor is gentle). To ensure the product feels consistently filmmaker-safe while preserving persona differentiation, we should introduce a shared “house style” applied to all personas.
+
+Proposed approach: House Style + Persona Edge
+
+Add a shared HOUSE_STYLE_GUIDELINES prefix applied to every persona.
+
+Keep each persona’s unique lens and rubric, but constrain language to be respectful and constructive by default.
+
+House Style rules (applies to all personas):
+
+Use professional, constructive phrasing (“Consider…”, “It may help to…”).
+
+State issues clearly but without dismissive or insulting language.
+
+Frame concerns as improvement opportunities, not verdicts.
+
+Be specific about impact and evidence; avoid absolute value judgments.
+
+Maintain honest severity scoring when required, but express it neutrally.
+
+Implementation (recommended):
+
+Create a shared constant (e.g., HOUSE_STYLE_GUIDELINES) and prepend it to every persona’s systemInstruction (and optionally add a short reminder in each userPrompt).
+
+This is cleaner and easier to maintain than editing each persona repeatedly.
+
+What your House Style should actually say (copy/paste block)
+
+You want it short, enforceable, and not in tension with critical rubrics.
+
+HOUSE STYLE (applies to all personas):
+- Communicate with respect and professional restraint. No insults, ridicule, or dismissive language.
+- Be candid and specific: when something is a problem, state it clearly with evidence and impact.
+- Phrase recommendations constructively (e.g., “Consider tightening…”, “Clarify…”, “It may help to…”).
+- Avoid absolute judgments (“this is terrible,” “this fails,” “no one will care”).
+- Do not moralize the filmmaker’s choices; focus on viewer experience and outcomes.
+- Keep the goal: help the filmmaker make the work stronger and more legible to the intended audience.
+
+
+This preserves rigor while avoiding “harshness as identity.”
+
+Important: how to handle the Acquisitions persona without neutering it
+
+Instead of “no-nonsense / not to make them feel good,” use:
+
+“Direct, time-efficient decision memo style”
+
+“Prioritize risks and decision-relevant issues”
+
+“Use severity and impact language”
+
+That keeps it sharp without antagonism.
+
+Example replacement line:
+
+“Write with professional directness and efficiency, as an internal memo. Be candid about risks and weaknesses, supported by evidence and impact.”

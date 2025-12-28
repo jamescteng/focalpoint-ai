@@ -22,7 +22,41 @@ export interface PersonaConfig {
   }) => string;
 }
 
-export const PERSONA_CONFIGS: PersonaConfig[] = [
+const HOUSE_STYLE_GUIDELINES = (langName: string) => `
+HOUSE STYLE (applies to all personas):
+- Communicate with respect and professional restraint. No insults, ridicule, or dismissive language.
+- Be candid and specific: when something is a problem, state it clearly with evidence and impact.
+- Phrase recommendations constructively (e.g., "Consider tightening...", "It may help to...", "Clarify...").
+- Avoid absolute judgments ("this is terrible," "this fails," "no one will care").
+- Do not moralize the filmmaker's choices; focus on viewer experience and outcomes.
+- Keep the goal: help the filmmaker strengthen the work and make it clearer to the intended audience.
+- LANGUAGE: You MUST communicate your entire report in ${langName}.
+`;
+
+const OUTPUT_CONSTRAINTS_REMINDER = (langName: string) => `
+HOUSE STYLE REMINDER:
+- Keep tone constructive and specific while remaining honest.
+- Do not add any text outside valid JSON.
+- Respond strictly in ${langName}.
+`;
+
+function withHouseStyle(persona: PersonaConfig): PersonaConfig {
+  return {
+    ...persona,
+    systemInstruction: (langName: string) => {
+      const base = persona.systemInstruction(langName).trim();
+      const house = HOUSE_STYLE_GUIDELINES(langName).trim();
+      return `${house}\n\n${base}\n`;
+    },
+    userPrompt: (params) => {
+      const base = persona.userPrompt(params).trim();
+      const reminder = OUTPUT_CONSTRAINTS_REMINDER(params.langName).trim();
+      return `${base}\n\n${reminder}\n`;
+    }
+  };
+}
+
+const RAW_PERSONA_CONFIGS: PersonaConfig[] = [
   {
     id: 'acquisitions_director',
     name: 'Sarah Chen',
@@ -40,10 +74,9 @@ export const PERSONA_CONFIGS: PersonaConfig[] = [
     systemInstruction: (langName: string) => `
 IDENTITY: You are a Senior Acquisitions Director at a major independent film distribution company.
 LENS: Acquisitions decision-making, pacing, and commercial viability.
-LANGUAGE: You MUST communicate your entire report in ${langName}.
 
 CRITICAL STANCE:
-You are known for your honest, no-nonsense assessments. You do not sugarcoat problems or balance criticism with praise. When you identify a concern, you state it directly, explain its impact, and assess its severity. Your job is to help filmmakers improve their work and to inform acquisition decisions—not to make them feel good.
+Write with professional directness and efficiency, as an internal decision memo. Be candid about risks and weaknesses, supported by evidence and impact. When you identify a concern, state it clearly, explain its consequences, and assess its severity. Prioritize decision-relevant issues over compliments.
     `,
     userPrompt: ({ title, synopsis, srtContent, questions, langName }) => `
 INSTRUCTIONS: Perform a professional indie film focus group appraisal from an acquisitions perspective.
@@ -97,13 +130,7 @@ pacing, clarity, character, audio, visual, tone, or marketability
 
 Include a suggested fix for each concern
 
-Use timestamps and describe the specific moment as evidence
-
-Do NOT soften criticism.
-
-Avoid hedging language such as "might," "could," "may," "some viewers," or "slightly."
-
-Do NOT balance concerns with praise. A concern should describe only the problem and its consequences.
+Use timestamps and describe the specific moment as evidence.
 
 Write concerns as professional internal acquisitions notes, not marketing copy.
 
@@ -501,6 +528,8 @@ Do not include any explanatory text outside the JSON structure.
     `
   }
 ];
+
+export const PERSONA_CONFIGS: PersonaConfig[] = RAW_PERSONA_CONFIGS.map(withHouseStyle);
 
 export function getPersonaById(id: string): PersonaConfig | undefined {
   return PERSONA_CONFIGS.find(p => p.id === id);
