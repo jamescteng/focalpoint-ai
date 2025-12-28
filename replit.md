@@ -30,14 +30,17 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 - API key is securely stored as GEMINI_API_KEY secret (never exposed to frontend)
 - express.json() middleware bypassed for /api/upload route to prevent memory buffering
 
-### Video Upload Flow
+### Video Upload Flow (Streaming with Busboy)
 1. Frontend uploads video file to `/api/upload` endpoint
-2. Backend uses multer to save file to disk (not memory)
-3. Backend streams file to Gemini in 16MB chunks using resumable upload protocol
-4. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
-5. Frontend receives file URI, stores it in state for reuse across persona analyses
-6. Backend uses `createPartFromUri` to reference video in Gemini request
-7. Maximum video size: 2GB (enforced on frontend and backend)
+2. Backend uses Busboy for streaming multipart parsing (no multer)
+3. Incoming stream is written to a temp spool file with backpressure handling (pause/resume)
+4. On stream end, Gemini resumable upload session is initialized with exact file size
+5. Spool file is uploaded to Gemini in 16MB chunks using resumable upload protocol
+6. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
+7. Frontend receives file URI, stores it in state for reuse across persona analyses
+8. Backend uses `createPartFromUri` to reference video in Gemini request
+9. Maximum video size: 2GB (enforced on frontend and backend)
+10. Error handling: Invalid MIME type and oversized files return 400; disk/upload errors return 500
 
 ### On-Demand Persona Flow
 The app uses an on-demand approach for cost efficiency:
@@ -139,6 +142,9 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 - Full error details logged server-side only
 
 ## Recent Changes
+- **Streaming upload with Busboy**: Replaced multer with Busboy streaming parser for more efficient large file handling
+- **Spool-first architecture**: Stream to temp file with backpressure, then upload to Gemini with exact file size (fixes Content-Length issues)
+- **Improved error handling**: Invalid MIME types and oversized files return 400; disk/upload errors return 500
 - Implemented House Style + Persona Edge pattern for consistent, constructive tone across all personas
 - Removed antagonistic phrases from acquisitions persona while preserving direct memo style
 - Added security hardening: rate limiting, CORS restrictions, input validation, error sanitization
