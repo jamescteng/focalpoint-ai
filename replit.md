@@ -20,7 +20,7 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 - Vite 6 (build tool, dev server on port 5000)
 - Express (backend API on port 3001)
 - Tailwind CSS (via CDN)
-- Work Sans font (sans-serif throughout)
+- Inter + Noto Sans TC font stack (better CJK support)
 - Google Gemini AI (@google/genai) - using gemini-3-flash-preview model
 
 ## Architecture
@@ -115,6 +115,9 @@ Server-side validation per persona:
 Autoscale deployment - builds frontend with Vite, serves via Express backend.
 
 ## Security Features
+
+### Proxy Trust
+- `app.set('trust proxy', 1)` - Trusts first proxy (Replit load balancer) for accurate IP detection in rate limiting
 
 ### Rate Limiting (express-rate-limit)
 - `/api/upload`: 2 requests/minute per IP
