@@ -51,6 +51,11 @@ The app uses an on-demand approach for cost efficiency:
 
 ### Multi-Persona Architecture
 - Persona configurations stored in `/server/personas.ts`
+- **House Style + Persona Edge pattern:**
+  - `HOUSE_STYLE_GUIDELINES` - Shared tone rules prepended to all personas' systemInstruction
+  - `OUTPUT_CONSTRAINTS_REMINDER` - Shared reminder appended to all personas' userPrompt
+  - `withHouseStyle` wrapper - Transforms RAW_PERSONA_CONFIGS into exported PERSONA_CONFIGS
+  - Ensures consistent, respectful, constructive tone while preserving each persona's unique lens
 - Each persona has unique:
   - System instruction (identity, lens, critical stance)
   - User prompt template
@@ -58,7 +63,7 @@ The app uses an on-demand approach for cost efficiency:
   - Concern categories (e.g., pacing, clarity, character, audio, visual, tone, emotional_distance)
   - Minimum high-severity concern threshold
 - Available personas:
-  - `acquisitions_director` - Commercial viability, pacing, marketability focus
+  - `acquisitions_director` - Commercial viability, pacing, marketability focus (direct memo style)
   - `cultural_editor` - Cultural relevance, emotional resonance, authorship focus
   - `mass_audience_viewer` - Clarity, engagement, drop-off risk focus
   - `social_impact_viewer` - Message clarity, ethical storytelling, trust focus
@@ -134,9 +139,13 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 - Full error details logged server-side only
 
 ## Recent Changes
+- Implemented House Style + Persona Edge pattern for consistent, constructive tone across all personas
+- Removed antagonistic phrases from acquisitions persona while preserving direct memo style
 - Added security hardening: rate limiting, CORS restrictions, input validation, error sanitization
 - Implemented on-demand persona flow (select one first, add more after viewing)
 - Video uploads only once per screening session, fileUri is cached
 - Added "Add Reviewer" button in ScreeningRoom for incremental persona analysis
 - Reports are cached in state - switching between personas is instant
 - State properly resets when starting a new screening
+- Removed dialogue/SRT input field; srtContent now optional
+- UI refresh: Work Sans font throughout, updated copy, tightened layout
