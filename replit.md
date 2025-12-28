@@ -102,7 +102,36 @@ Server-side validation per persona:
 ## Deployment
 Autoscale deployment - builds frontend with Vite, serves via Express backend.
 
+## Security Features
+
+### Rate Limiting (express-rate-limit)
+- `/api/upload`: 2 requests/minute per IP
+- `/api/analyze`: 5 requests/minute per IP  
+- `/api/health`, `/api/personas`: 20 requests/minute per IP
+
+### CORS Restrictions
+- Production: Only allows *.repl.co, *.replit.dev, *.replit.app origins
+- Development: Allows localhost:5000
+
+### Input Validation (/api/analyze)
+- Title: required, max 200 characters
+- Synopsis: max 5000 characters
+- SRT content: max 500KB
+- Questions: max 10, each max 500 characters
+- Language: must be 'en' or 'zh-TW'
+- fileUri: must start with 'https://generativelanguage.googleapis.com/'
+- personaIds: validated against persona registry whitelist
+
+### File Upload Validation
+- MIME type must be video/* or in allowed list
+- Maximum size: 2GB
+
+### Error Sanitization
+- Generic error messages returned to clients
+- Full error details logged server-side only
+
 ## Recent Changes
+- Added security hardening: rate limiting, CORS restrictions, input validation, error sanitization
 - Implemented on-demand persona flow (select one first, add more after viewing)
 - Video uploads only once per screening session, fileUri is cached
 - Added "Add Reviewer" button in ScreeningRoom for incremental persona analysis

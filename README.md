@@ -38,29 +38,29 @@ Each persona has unique:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (Port 5000)                      │
-│  React + Vite                                                    │
-│  ├── UploadForm (single persona selection)                       │
-│  ├── ProcessingQueue (upload + analysis status)                  │
-│  └── ScreeningRoom (reports, video player, Add Reviewer)         │
+│                        Frontend (Port 5000)                     │
+│  React + Vite                                                   │
+│  ├── UploadForm (single persona selection)                      │
+│  ├── ProcessingQueue (upload + analysis status)                 │
+│  └── ScreeningRoom (reports, video player, Add Reviewer)        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ /api/* (proxied)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Backend (Port 3001)                       │
-│  Express.js                                                      │
-│  ├── POST /api/upload    → Resumable upload to Gemini File API   │
-│  ├── POST /api/analyze   → Generate report with selected persona │
-│  ├── GET  /api/personas  → List available personas               │
-│  └── GET  /api/health    → Health check                          │
+│                        Backend (Port 3001)                      │
+│  Express.js                                                     │
+│  ├── POST /api/upload    → Resumable upload to Gemini File API  │
+│  ├── POST /api/analyze   → Generate report with selected persona│
+│  ├── GET  /api/personas  → List available personas              │
+│  └── GET  /api/health    → Health check                         │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Google Gemini API                            │
-│  ├── File API (resumable upload, 48hr retention)                 │
-│  └── generateContent (video + prompt → structured JSON)          │
+│                     Google Gemini API                           │
+│  ├── File API (resumable upload, 48hr retention)                │
+│  └── generateContent (video + prompt → structured JSON)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

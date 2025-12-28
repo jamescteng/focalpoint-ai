@@ -7,6 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { GoogleGenAI, Type, createPartFromUri } from "@google/genai";
 import { getPersonaById, getAllPersonas, PersonaConfig } from './personas.js';
 
@@ -19,8 +20,90 @@ const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = isProduction ? 5000 : 3001;
 
+// =============================================================================
+// Logging (defined early for use in security middleware)
+// =============================================================================
+const FocalPointLogger = {
+  info: (stage: string, data: any) => console.log(`[FocalPoint][INFO][${stage}]`, data),
+  warn: (stage: string, msg: string) => console.warn(`[FocalPoint][WARN][${stage}]`, msg),
+  error: (stage: string, err: any) => console.error(`[FocalPoint][ERROR][${stage}]`, err)
+};
+
+// =============================================================================
+// SECURITY: Input Validation Constants
+// =============================================================================
+const VALID_LANGUAGES = ['en', 'zh-TW'] as const;
+const MAX_TITLE_LENGTH = 200;
+const MAX_SYNOPSIS_LENGTH = 5000;
+const MAX_SRT_LENGTH = 500000; // 500KB
+const MAX_QUESTION_LENGTH = 500;
+const MAX_QUESTIONS_COUNT = 10;
+const ALLOWED_VIDEO_MIMES = [
+  'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+  'video/webm', 'video/mpeg', 'video/ogg', 'video/3gpp', 'video/3gpp2'
+];
+
+// =============================================================================
+// SECURITY: Rate Limiting
+// =============================================================================
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 2, // 2 uploads per minute per IP
+  message: { error: 'Too many upload requests. Please wait before uploading again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const analyzeLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 analyze requests per minute per IP
+  message: { error: 'Too many analysis requests. Please wait before analyzing again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const statusLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 status/poll requests per minute per IP
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// =============================================================================
+// SECURITY: CORS Configuration
+// =============================================================================
 console.log('[FocalPoint] Configuring middleware...');
-app.use(cors());
+
+const allowedOrigins = isProduction
+  ? [process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER?.toLowerCase()}.repl.co` : '']
+  : ['http://localhost:5000', 'http://127.0.0.1:5000', 'http://0.0.0.0:5000'];
+
+// In production, also allow the replit.dev domain
+if (isProduction && process.env.REPLIT_DEV_DOMAIN) {
+  allowedOrigins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc) in development only
+    if (!origin) {
+      return callback(null, !isProduction);
+    }
+    // In production, check against allowed origins and Replit domains
+    if (isProduction) {
+      if (origin.endsWith('.repl.co') || origin.endsWith('.replit.dev') || origin.endsWith('.replit.app')) {
+        return callback(null, true);
+      }
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    FocalPointLogger.warn('CORS', `Blocked request from origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 
 const jsonParser = express.json({ limit: '50mb' });
 app.use((req, res, next) => {
@@ -30,7 +113,7 @@ app.use((req, res, next) => {
   return jsonParser(req, res, next);
 });
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', statusLimiter, (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
@@ -83,12 +166,6 @@ interface AnalyzeRequest {
   fileMimeType: string;
   personaIds: string[];
 }
-
-const FocalPointLogger = {
-  info: (stage: string, data: any) => console.log(`[FocalPoint][INFO][${stage}]`, data),
-  warn: (stage: string, msg: string) => console.warn(`[FocalPoint][WARN][${stage}]`, msg),
-  error: (stage: string, err: any) => console.error(`[FocalPoint][ERROR][${stage}]`, err)
-};
 
 const safeParseReport = (text: string): any => {
   try {
@@ -279,21 +356,29 @@ async function uploadFileWithResumable(filePath: string, mimeType: string, displ
 
 const handleMulterError = (err: any, req: any, res: any, next: any) => {
   if (err) {
-    console.error('[FocalPoint][ERROR][Multer]', err);
+    // SECURITY: Log full error internally, return generic message to client
+    FocalPointLogger.error("Multer", err);
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({ error: `File too large. Maximum size is ${MAX_VIDEO_SIZE_MB}MB.` });
     }
-    return res.status(500).json({ error: `Upload error: ${err.message}` });
+    return res.status(500).json({ error: "Upload error. Please try again." });
   }
   next();
 };
 
-app.post('/api/upload', upload.single('video'), handleMulterError, async (req, res) => {
+app.post('/api/upload', uploadLimiter, upload.single('video'), handleMulterError, async (req, res) => {
   logMem('upload_start');
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "No video file provided." });
+    }
+
+    // SECURITY: Validate MIME type is video
+    if (!ALLOWED_VIDEO_MIMES.includes(file.mimetype) && !file.mimetype.startsWith('video/')) {
+      fs.unlink(file.path, () => {});
+      FocalPointLogger.warn("Upload_Rejected", `Invalid MIME type: ${file.mimetype}`);
+      return res.status(400).json({ error: "Invalid file type. Only video files are accepted." });
     }
     
     logMem('after_multer');
@@ -315,9 +400,11 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
 
     if (fileInfo.state === "FAILED") {
       fs.unlink(file.path, () => {});
+      // SECURITY: Log full error internally, return generic message to client
       const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+      FocalPointLogger.error("Processing_Failed", errorMsg);
       return res.status(500).json({ 
-        error: `Video processing failed: ${errorMsg}. Please try a different video format.` 
+        error: "Video processing failed. Please try a different video format." 
       });
     }
 
@@ -330,8 +417,10 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
 
       if (elapsedMs > MAX_WAIT_MS) {
         fs.unlink(file.path, () => {});
+        // SECURITY: Log timeout internally, return generic message to client
+        FocalPointLogger.warn("Processing_Timeout", `Timed out after ${Math.round(elapsedMs / 1000)}s`);
         return res.status(500).json({ 
-          error: `Video processing timed out after ${Math.round(elapsedMs / 1000)}s. Please try a shorter or smaller video.` 
+          error: "Video processing timed out. Please try a shorter or smaller video." 
         });
       }
 
@@ -346,9 +435,11 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
 
       if (fileInfo.state === "FAILED") {
         fs.unlink(file.path, () => {});
+        // SECURITY: Log full error internally, return generic message to client
         const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+        FocalPointLogger.error("Processing_Failed", errorMsg);
         return res.status(500).json({ 
-          error: `Video processing failed: ${errorMsg}. Please try a different video format.` 
+          error: "Video processing failed. Please try a different video format." 
         });
       }
 
@@ -373,11 +464,12 @@ app.post('/api/upload', upload.single('video'), handleMulterError, async (req, r
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
     }
-    res.status(500).json({ error: `Upload failed: ${error.message}` });
+    // SECURITY: Log full error internally, return generic message to client
+    res.status(500).json({ error: "Upload failed. Please try again." });
   }
 });
 
-app.get('/api/personas', (req, res) => {
+app.get('/api/personas', statusLimiter, (req, res) => {
   const personas = getAllPersonas().map(p => ({
     id: p.id,
     name: p.name,
@@ -561,27 +653,78 @@ async function analyzeWithPersona(
   }
 }
 
-app.post('/api/analyze', async (req, res) => {
+app.post('/api/analyze', analyzeLimiter, async (req, res) => {
   try {
     const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType, personaIds } = req.body as AnalyzeRequest;
 
-    const ai = getAI();
-
+    // ==========================================================================
+    // SECURITY: Input Validation
+    // ==========================================================================
+    
+    // Validate title
     if (!title || !title.trim()) {
-      return res.status(400).json({ error: "Invalid project metadata: title is required." });
+      return res.status(400).json({ error: "Title is required." });
+    }
+    if (title.length > MAX_TITLE_LENGTH) {
+      return res.status(400).json({ error: `Title too long. Maximum ${MAX_TITLE_LENGTH} characters.` });
     }
 
+    // Validate synopsis
+    if (synopsis && synopsis.length > MAX_SYNOPSIS_LENGTH) {
+      return res.status(400).json({ error: `Synopsis too long. Maximum ${MAX_SYNOPSIS_LENGTH} characters.` });
+    }
+
+    // Validate SRT content
+    if (srtContent && srtContent.length > MAX_SRT_LENGTH) {
+      return res.status(400).json({ error: `Subtitle content too large. Maximum ${MAX_SRT_LENGTH / 1000}KB.` });
+    }
+
+    // Validate questions
+    if (questions) {
+      if (!Array.isArray(questions)) {
+        return res.status(400).json({ error: "Questions must be an array." });
+      }
+      if (questions.length > MAX_QUESTIONS_COUNT) {
+        return res.status(400).json({ error: `Too many questions. Maximum ${MAX_QUESTIONS_COUNT}.` });
+      }
+      for (const q of questions) {
+        if (typeof q !== 'string' || q.length > MAX_QUESTION_LENGTH) {
+          return res.status(400).json({ error: `Each question must be a string under ${MAX_QUESTION_LENGTH} characters.` });
+        }
+      }
+    }
+
+    // Validate language
+    if (language && !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: "Invalid language. Supported: en, zh-TW." });
+    }
+
+    // Validate fileUri format (basic check for Gemini URI)
     if (!fileUri) {
       return res.status(400).json({ error: "Video file URI is required. Please upload a video first." });
     }
+    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
+      FocalPointLogger.warn("Validation", `Suspicious fileUri: ${fileUri.substring(0, 50)}`);
+      return res.status(400).json({ error: "Invalid file URI format." });
+    }
 
+    // Validate personaIds against registry
+    const allPersonaIds = getAllPersonas().map(p => p.id);
     const selectedPersonaIds = personaIds && personaIds.length > 0 ? personaIds : ['acquisitions_director'];
+    
+    for (const id of selectedPersonaIds) {
+      if (typeof id !== 'string' || !allPersonaIds.includes(id)) {
+        return res.status(400).json({ error: `Invalid persona: ${id}` });
+      }
+    }
+
     const personas = selectedPersonaIds.map(id => getPersonaById(id)).filter((p): p is PersonaConfig => p !== undefined);
 
     if (personas.length === 0) {
       return res.status(400).json({ error: "No valid personas selected." });
     }
 
+    const ai = getAI();
     const langName = language === 'zh-TW' ? 'Traditional Chinese (Taiwan)' : 'English';
 
     FocalPointLogger.info("Analysis_Start", { personas: personas.map(p => p.id), fileUri });
@@ -608,8 +751,9 @@ app.post('/api/analyze', async (req, res) => {
     res.json({ results });
 
   } catch (error: any) {
+    // SECURITY: Log full error internally, return generic message to client
     FocalPointLogger.error("API_Call", error);
-    res.status(500).json({ error: `Screening failed: ${error.message}` });
+    res.status(500).json({ error: "Analysis failed. Please try again." });
   }
 });
 
