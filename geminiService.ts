@@ -9,10 +9,23 @@ const FocalPointLogger = {
 const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
+const POLL_INTERVAL_MS = 1500;
+const MAX_POLL_TIME_MS = 15 * 60 * 1000;
+
 export interface UploadResult {
   fileUri: string;
   fileMimeType: string;
   fileName: string;
+}
+
+interface UploadJobResponse {
+  jobId: string;
+  status: 'RECEIVED' | 'SPOOLING' | 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'ERROR';
+  progress: number;
+  fileUri: string | null;
+  fileMimeType: string | null;
+  fileName: string | null;
+  error: string | null;
 }
 
 export interface PersonaResult {
@@ -32,6 +45,59 @@ export interface AnalyzeResponse {
   results: PersonaResult[];
 }
 
+async function safeJsonParse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    throw new Error('Server returned empty response');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid response from server: ${text.substring(0, 100)}`);
+  }
+}
+
+async function pollUploadStatus(
+  jobId: string,
+  onProgress?: (progress: number) => void
+): Promise<UploadResult> {
+  const startTime = Date.now();
+  
+  while (true) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > MAX_POLL_TIME_MS) {
+      throw new Error('Upload timed out. Please try again with a smaller video.');
+    }
+    
+    const response = await fetch(`/api/upload/status/${jobId}`);
+    
+    if (!response.ok) {
+      const errorData = await safeJsonParse<{ error?: string }>(response);
+      throw new Error(errorData.error || `Status check failed: ${response.status}`);
+    }
+    
+    const status = await safeJsonParse<UploadJobResponse>(response);
+    
+    FocalPointLogger.info("Upload_Status", { jobId, status: status.status, progress: status.progress });
+    
+    onProgress?.(status.progress);
+    
+    if (status.status === 'ACTIVE' && status.fileUri && status.fileMimeType && status.fileName) {
+      return {
+        fileUri: status.fileUri,
+        fileMimeType: status.fileMimeType,
+        fileName: status.fileName
+      };
+    }
+    
+    if (status.status === 'ERROR') {
+      throw new Error(status.error || 'Upload failed');
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+}
+
 export const uploadVideo = async (
   file: File,
   onProgress?: (progress: number) => void
@@ -46,24 +112,25 @@ export const uploadVideo = async (
   const formData = new FormData();
   formData.append('video', file);
 
-  onProgress?.(10);
+  onProgress?.(1);
 
   const response = await fetch('/api/upload', {
     method: 'POST',
     body: formData
   });
 
-  onProgress?.(50);
-
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await safeJsonParse<{ error?: string }>(response);
     throw new Error(errorData.error || `Upload failed: ${response.status}`);
   }
 
-  const result = await response.json();
-  FocalPointLogger.info("Upload_Complete", result);
+  const startResult = await safeJsonParse<{ jobId: string; status: string }>(response);
+  FocalPointLogger.info("Upload_JobCreated", { jobId: startResult.jobId });
   
-  onProgress?.(100);
+  onProgress?.(3);
+
+  const result = await pollUploadStatus(startResult.jobId, onProgress);
+  FocalPointLogger.info("Upload_Complete", result);
   
   return result;
 };
@@ -102,11 +169,11 @@ export const analyzeWithPersona = async (
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await safeJsonParse<{ error?: string }>(response);
       throw new Error(errorData.error || `Server error: ${response.status}`);
     }
 
-    const data: AnalyzeResponse = await response.json();
+    const data = await safeJsonParse<AnalyzeResponse>(response);
     FocalPointLogger.info("API_Success", `Received ${data.results.length} persona report(s)`);
     
     const result = data.results[0];

@@ -373,6 +373,214 @@ interface StreamingUploadState {
   displayName: string;
 }
 
+// =============================================================================
+// ASYNC UPLOAD JOB STORE
+// =============================================================================
+type UploadJobStatus = 'RECEIVED' | 'SPOOLING' | 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'ERROR';
+
+interface UploadJob {
+  id: string;
+  status: UploadJobStatus;
+  progress: number;
+  fileUri?: string;
+  fileMimeType?: string;
+  fileName?: string;
+  error?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+const uploadJobs = new Map<string, UploadJob>();
+
+const JOB_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function generateJobId(): string {
+  return `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createJob(): UploadJob {
+  const job: UploadJob = {
+    id: generateJobId(),
+    status: 'RECEIVED',
+    progress: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  uploadJobs.set(job.id, job);
+  return job;
+}
+
+function updateJob(jobId: string, updates: Partial<UploadJob>): void {
+  const job = uploadJobs.get(jobId);
+  if (job) {
+    Object.assign(job, updates, { updatedAt: Date.now() });
+  }
+}
+
+function cleanupOldJobs(): void {
+  const now = Date.now();
+  for (const [id, job] of uploadJobs.entries()) {
+    if (now - job.createdAt > JOB_TTL_MS) {
+      uploadJobs.delete(id);
+    }
+  }
+}
+
+setInterval(cleanupOldJobs, 5 * 60 * 1000);
+
+async function processUploadInBackground(
+  jobId: string,
+  spoolPath: string,
+  mimeType: string,
+  displayName: string,
+  fileSize: number
+): Promise<void> {
+  try {
+    updateJob(jobId, { status: 'UPLOADING', progress: 5 });
+    
+    const uploadUrl = await initGeminiResumableSession(fileSize, mimeType, displayName);
+    
+    const uploadResult = await uploadFromSpoolFileWithProgress(
+      spoolPath,
+      uploadUrl,
+      0,
+      fileSize,
+      (progress) => updateJob(jobId, { progress: 5 + Math.round(progress * 0.6) })
+    );
+    
+    updateJob(jobId, { 
+      status: 'PROCESSING', 
+      progress: 70,
+      fileName: uploadResult.name 
+    });
+    
+    FocalPointLogger.info("Background_Upload_Complete", { name: uploadResult.name, uri: uploadResult.uri });
+    
+    const ai = getAI();
+    let fileInfo = await ai.files.get({ name: uploadResult.name });
+
+    if (fileInfo.state === "FAILED") {
+      const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+      FocalPointLogger.error("Background_Processing_Failed", errorMsg);
+      updateJob(jobId, { status: 'ERROR', error: "Video processing failed. Please try a different video format." });
+      fs.unlink(spoolPath, () => {});
+      return;
+    }
+
+    const startTime = Date.now();
+    let attempt = 0;
+    let delayMs = INITIAL_DELAY_MS;
+
+    while (fileInfo.state === "PROCESSING") {
+      const elapsedMs = Date.now() - startTime;
+
+      if (elapsedMs > MAX_WAIT_MS) {
+        FocalPointLogger.warn("Background_Processing_Timeout", `Timed out after ${Math.round(elapsedMs / 1000)}s`);
+        updateJob(jobId, { status: 'ERROR', error: "Video processing timed out. Please try a shorter or smaller video." });
+        fs.unlink(spoolPath, () => {});
+        return;
+      }
+
+      FocalPointLogger.info(
+        "Background_Processing",
+        `Waiting for video processing… attempt=${attempt + 1}, elapsed=${Math.round(elapsedMs / 1000)}s`
+      );
+      
+      const processingProgress = Math.min(95, 70 + Math.round((elapsedMs / MAX_WAIT_MS) * 25));
+      updateJob(jobId, { progress: processingProgress });
+
+      await sleepWithJitter(delayMs);
+
+      fileInfo = await ai.files.get({ name: uploadResult.name });
+
+      if (fileInfo.state === "FAILED") {
+        const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
+        FocalPointLogger.error("Background_Processing_Failed", errorMsg);
+        updateJob(jobId, { status: 'ERROR', error: "Video processing failed. Please try a different video format." });
+        fs.unlink(spoolPath, () => {});
+        return;
+      }
+
+      delayMs = Math.min(delayMs * BACKOFF_FACTOR, MAX_DELAY_MS);
+      attempt++;
+    }
+
+    fs.unlink(spoolPath, () => {});
+
+    FocalPointLogger.info("Background_Processing_Complete", { state: fileInfo.state });
+    
+    updateJob(jobId, {
+      status: 'ACTIVE',
+      progress: 100,
+      fileUri: fileInfo.uri,
+      fileMimeType: mimeType,
+      fileName: uploadResult.name
+    });
+
+  } catch (error: any) {
+    FocalPointLogger.error("Background_Upload_Error", error.message);
+    updateJob(jobId, { status: 'ERROR', error: error.message || "Upload failed. Please try again." });
+    fs.unlink(spoolPath, () => {});
+  }
+}
+
+async function uploadFromSpoolFileWithProgress(
+  spoolPath: string,
+  uploadUrl: string,
+  startOffset: number,
+  totalSize: number,
+  onProgress?: (progress: number) => void
+): Promise<{ name: string; uri: string }> {
+  const CHUNK_SIZE = 16 * 1024 * 1024;
+  const CHUNK_GRANULARITY = 256 * 1024;
+  
+  FocalPointLogger.info("Spool_Resume", { startOffset, totalSize, spoolPath });
+  
+  let offset = startOffset;
+  const fd = fs.openSync(spoolPath, 'r');
+  let finalResult: any = null;
+
+  try {
+    while (offset < totalSize) {
+      const remainingBytes = totalSize - offset;
+      const isLastChunk = remainingBytes <= CHUNK_SIZE;
+      
+      let currentChunkSize: number;
+      if (isLastChunk) {
+        currentChunkSize = remainingBytes;
+      } else {
+        currentChunkSize = Math.floor(CHUNK_SIZE / CHUNK_GRANULARITY) * CHUNK_GRANULARITY;
+      }
+      
+      const buffer = Buffer.alloc(currentChunkSize);
+      fs.readSync(fd, buffer, 0, currentChunkSize, offset);
+
+      const progressPercent = (offset + currentChunkSize) / totalSize;
+      FocalPointLogger.info("Spool_Chunk", `Uploading from spool: ${Math.round(progressPercent * 100)}%`);
+      onProgress?.(progressPercent);
+
+      const result = await uploadChunkToGemini(uploadUrl, buffer, offset, isLastChunk, totalSize);
+      
+      if (result.finalResult?.file) {
+        finalResult = result.finalResult;
+      }
+      
+      offset = result.newOffset;
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  if (!finalResult?.file) {
+    throw new Error("Spool upload completed but could not retrieve file info");
+  }
+
+  return {
+    name: finalResult.file.name,
+    uri: finalResult.file.uri
+  };
+}
+
 async function initGeminiResumableSession(
   fileSize: number,
   mimeType: string,
@@ -526,12 +734,17 @@ async function uploadFromSpoolFile(
 app.post('/api/upload', uploadLimiter, async (req, res) => {
   logMem('upload_start');
   
+  const job = createJob();
   let spoolPath: string | null = null;
   let spoolWriteStream: fs.WriteStream | null = null;
+  let fileMimeType: string = '';
+  let fileDisplayName: string = '';
+  let totalBytesReceived: number = 0;
   
   try {
     const contentType = req.headers['content-type'];
     if (!contentType || !contentType.includes('multipart/form-data')) {
+      updateJob(job.id, { status: 'ERROR', error: "Invalid request format." });
       return res.status(400).json({ error: "Invalid request format. Expected multipart/form-data." });
     }
 
@@ -542,11 +755,8 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
 
     let fileProcessed = false;
     let uploadError: Error | null = null;
-    let finalUploadResult: { name: string; uri: string } | null = null;
-    let fileMimeType: string = '';
-    let fileDisplayName: string = '';
 
-    const uploadPromise = new Promise<void>((resolve, reject) => {
+    const spoolPromise = new Promise<{ spoolPath: string; fileSize: number; mimeType: string; displayName: string } | null>((resolve, reject) => {
       busboy.on('file', async (fieldname, fileStream, info) => {
         if (fieldname !== 'video') {
           fileStream.resume();
@@ -562,19 +772,18 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
           FocalPointLogger.warn("Upload_Rejected", `Invalid MIME type: ${mimeType}`);
           uploadError = new Error("Invalid file type. Only video files are accepted.");
           fileStream.resume();
-          fileStream.on('end', () => resolve());
-          fileStream.on('error', () => resolve());
+          fileStream.on('end', () => resolve(null));
+          fileStream.on('error', () => resolve(null));
           return;
         }
 
         FocalPointLogger.info("Stream_Start", { filename, mimeType });
+        updateJob(job.id, { status: 'SPOOLING', progress: 1 });
 
         spoolPath = path.join(os.tmpdir(), `focalpoint-spool-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         spoolWriteStream = fs.createWriteStream(spoolPath, { highWaterMark: 16 * 1024 * 1024 });
 
         let bytesReceived = 0;
-        let uploadUrl: string | null = null;
-        let streamEnded = false;
         let spoolError: Error | null = null;
 
         spoolWriteStream.on('error', (err) => {
@@ -591,6 +800,7 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
           if (spoolError) return;
           
           bytesReceived += chunk.length;
+          totalBytesReceived = bytesReceived;
           const canContinue = spoolWriteStream!.write(chunk);
           
           if (!canContinue) {
@@ -605,13 +815,11 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
         });
 
         fileStream.on('end', async () => {
-          streamEnded = true;
-          
           if (spoolError || uploadError) {
             if (spoolWriteStream) {
               spoolWriteStream.destroy();
             }
-            resolve();
+            resolve(null);
             return;
           }
           
@@ -623,19 +831,15 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
             
             FocalPointLogger.info("Spool_Complete", { totalBytes: bytesReceived, spoolPath });
             
-            uploadUrl = await initGeminiResumableSession(bytesReceived, mimeType, fileDisplayName);
-            
-            finalUploadResult = await uploadFromSpoolFile(spoolPath!, uploadUrl, 0, bytesReceived);
-            
-            FocalPointLogger.info("Upload_Success", { 
-              bytesReceived, 
-              fileName: finalUploadResult.name 
+            resolve({
+              spoolPath: spoolPath!,
+              fileSize: bytesReceived,
+              mimeType,
+              displayName: fileDisplayName
             });
             
-            resolve();
-            
           } catch (err: any) {
-            FocalPointLogger.error("Upload_Error", err.message);
+            FocalPointLogger.error("Spool_Error", err.message);
             reject(err);
           }
         });
@@ -665,89 +869,76 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
 
     req.pipe(busboy);
     
-    await uploadPromise;
+    const spoolResult = await spoolPromise;
 
     if (uploadError) {
       if (spoolPath) fs.unlink(spoolPath, () => {});
       const isValidationError = uploadError.message.includes("Invalid file type") || 
                                  uploadError.message.includes("too large");
       const statusCode = isValidationError ? 400 : 500;
+      updateJob(job.id, { status: 'ERROR', error: uploadError.message });
       return res.status(statusCode).json({ error: uploadError.message });
     }
 
-    if (!finalUploadResult) {
+    if (!spoolResult) {
       if (spoolPath) fs.unlink(spoolPath, () => {});
+      updateJob(job.id, { status: 'ERROR', error: "Upload failed." });
       return res.status(500).json({ error: "Upload failed. Please try again." });
     }
 
-    FocalPointLogger.info("Upload_Complete", { name: finalUploadResult.name, uri: finalUploadResult.uri });
+    FocalPointLogger.info("Upload_Received", { 
+      jobId: job.id, 
+      fileSize: spoolResult.fileSize,
+      mimeType: spoolResult.mimeType 
+    });
 
-    const ai = getAI();
-    let fileInfo = await ai.files.get({ name: finalUploadResult.name });
+    updateJob(job.id, { 
+      status: 'RECEIVED', 
+      progress: 3,
+      fileMimeType: spoolResult.mimeType
+    });
 
-    if (fileInfo.state === "FAILED") {
-      if (spoolPath) fs.unlink(spoolPath, () => {});
-      const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
-      FocalPointLogger.error("Processing_Failed", errorMsg);
-      return res.status(500).json({ 
-        error: "Video processing failed. Please try a different video format." 
-      });
-    }
-
-    const startTime = Date.now();
-    let attempt = 0;
-    let delayMs = INITIAL_DELAY_MS;
-
-    while (fileInfo.state === "PROCESSING") {
-      const elapsedMs = Date.now() - startTime;
-
-      if (elapsedMs > MAX_WAIT_MS) {
-        if (spoolPath) fs.unlink(spoolPath, () => {});
-        FocalPointLogger.warn("Processing_Timeout", `Timed out after ${Math.round(elapsedMs / 1000)}s`);
-        return res.status(500).json({ 
-          error: "Video processing timed out. Please try a shorter or smaller video." 
-        });
-      }
-
-      FocalPointLogger.info(
-        "Processing",
-        `Waiting for video processing… attempt=${attempt + 1}, elapsed=${Math.round(elapsedMs / 1000)}s`
-      );
-
-      await sleepWithJitter(delayMs);
-
-      fileInfo = await ai.files.get({ name: finalUploadResult.name });
-
-      if (fileInfo.state === "FAILED") {
-        if (spoolPath) fs.unlink(spoolPath, () => {});
-        const errorMsg = (fileInfo as any).error?.message ?? "unknown error";
-        FocalPointLogger.error("Processing_Failed", errorMsg);
-        return res.status(500).json({ 
-          error: "Video processing failed. Please try a different video format." 
-        });
-      }
-
-      delayMs = Math.min(delayMs * BACKOFF_FACTOR, MAX_DELAY_MS);
-      attempt++;
-    }
-
-    if (spoolPath) fs.unlink(spoolPath, () => {});
-
-    FocalPointLogger.info("Processing_Complete", { state: fileInfo.state });
-    logMem('upload_complete');
+    processUploadInBackground(
+      job.id,
+      spoolResult.spoolPath,
+      spoolResult.mimeType,
+      spoolResult.displayName,
+      spoolResult.fileSize
+    ).catch(err => {
+      FocalPointLogger.error("Background_Process_Uncaught", err);
+    });
 
     res.json({
-      fileUri: fileInfo.uri,
-      fileMimeType: fileMimeType,
-      fileName: finalUploadResult.name
+      jobId: job.id,
+      status: 'RECEIVED'
     });
 
   } catch (error: any) {
     logMem('upload_error');
     FocalPointLogger.error("Upload", error);
     if (spoolPath) fs.unlink(spoolPath, () => {});
+    updateJob(job.id, { status: 'ERROR', error: "Upload failed. Please try again." });
     res.status(500).json({ error: "Upload failed. Please try again." });
   }
+});
+
+app.get('/api/upload/status/:jobId', statusLimiter, (req, res) => {
+  const { jobId } = req.params;
+  const job = uploadJobs.get(jobId);
+  
+  if (!job) {
+    return res.status(404).json({ error: "Upload job not found." });
+  }
+  
+  res.json({
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    fileUri: job.fileUri || null,
+    fileMimeType: job.fileMimeType || null,
+    fileName: job.fileName || null,
+    error: job.error || null
+  });
 });
 
 app.get('/api/personas', statusLimiter, (req, res) => {

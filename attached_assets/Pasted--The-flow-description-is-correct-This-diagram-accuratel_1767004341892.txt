@@ -1,0 +1,199 @@
+✅ The flow description is correct
+
+This diagram accurately reflects what’s happening:
+
+Browser → Server → (spool) → Gemini upload → poll ACTIVE → response
+
+
+And yes:
+
+“The browser’s fetch() waits for the entire process to complete”
+
+That is exactly what is happening.
+
+✅ Busboy + spool + resumable upload is not the problem
+
+Nothing in this flow is “wrong” at the infrastructure level:
+
+Streaming works
+
+Backpressure is handled
+
+Disk usage is controlled
+
+Gemini resumable upload is correct
+
+Polling logic is reasonable
+
+So this is not a performance bug.
+
+2. What is actually wrong (the real issue)
+❌ You are treating a long-running job as an HTTP request
+
+That’s the core problem.
+
+Right now, your system design says:
+
+“An upload request is not complete until the video is ACTIVE on Gemini.”
+
+That’s a category error.
+
+From a product and systems perspective:
+
+Uploading the file
+
+Processing the file
+
+Analyzing the file
+
+are three different lifecycle stages, but you’ve collapsed them into one blocking HTTP call.
+
+This guarantees:
+
+Long request times
+
+Silent UI
+
+Bad failure recovery
+
+Inability to scale or retry cleanly
+
+This is independent of Gemini.
+
+3. The correct fix: split the lifecycle (this is the key)
+
+You need to decouple upload acceptance from processing completion.
+
+The correct mental model
+
+Uploading a video should behave like:
+
+“File accepted”
+
+not “File fully processed and ready”
+
+This is how every serious media system works (YouTube, Vimeo, Frame.io, etc.).
+
+4. The correct architecture (minimal change, big win)
+Step 1 — Make /api/upload return early (critical change)
+
+Change the contract of /api/upload:
+
+Instead of:
+
+waiting for Gemini upload + ACTIVE polling
+
+then returning fileUri
+
+Do this:
+
+accept the stream
+
+spool to disk
+
+immediately return a job ID
+
+process Gemini upload + polling in the background
+
+Example response:
+
+{
+  "uploadJobId": "upload_abc123",
+  "status": "RECEIVED"
+}
+
+
+Browser no longer waits 3–5 minutes.
+
+Step 2 — Background worker continues Gemini upload + polling
+
+Server-side:
+
+continue resumable upload
+
+poll Gemini until ACTIVE
+
+store result in memory / cache / DB:
+
+uploadJobs[jobId] = {
+  status: "ACTIVE",
+  fileUri: "https://generativelanguage.googleapis.com/..."
+}
+
+Step 3 — Add a status endpoint
+GET /api/upload/status/:jobId
+
+
+Returns:
+
+{
+  "status": "UPLOADING" | "PROCESSING" | "ACTIVE" | "ERROR",
+  "progress": 0.42,
+  "fileUri": null
+}
+
+
+Frontend polls this (or uses SSE).
+
+Step 4 — UI becomes responsive and honest
+
+Frontend flow:
+
+User selects file
+
+Upload starts
+
+UI immediately shows:
+
+“File received”
+
+“Processing video…”
+
+Progress updates appear
+
+Once ACTIVE → enable “Start Review”
+
+No silence. No frozen button. No mystery.
+
+5. Why this is the correct fix (not a workaround)
+This does NOT:
+
+change Gemini behavior
+
+require streaming into Gemini directly
+
+add architectural risk
+
+This DOES:
+
+fix perceived latency completely
+
+improve reliability
+
+enable retries and error recovery
+
+prepare you for queues and scaling
+
+align with user mental models
+
+This is table stakes for media-heavy apps.
+
+6. Important: this also fixes your “Add Reviewer” UX later
+
+Once you separate:
+
+upload lifecycle
+
+analysis lifecycle
+
+you unlock:
+
+background reviewer jobs
+
+partial results
+
+incremental persona addition
+
+proper cancellation
+
+Right now everything is tightly coupled.

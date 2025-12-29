@@ -30,17 +30,34 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 - API key is securely stored as GEMINI_API_KEY secret (never exposed to frontend)
 - express.json() middleware bypassed for /api/upload route to prevent memory buffering
 
-### Video Upload Flow (Streaming with Busboy)
+### Video Upload Flow (Async with Background Processing)
+The upload uses a job-based async architecture for responsive UI:
+
+**Phase 1: File Reception (immediate response)**
 1. Frontend uploads video file to `/api/upload` endpoint
-2. Backend uses Busboy for streaming multipart parsing (no multer)
-3. Incoming stream is written to a temp spool file with backpressure handling (pause/resume)
-4. On stream end, Gemini resumable upload session is initialized with exact file size
-5. Spool file is uploaded to Gemini in 16MB chunks using resumable upload protocol
+2. Backend uses Busboy for streaming multipart parsing
+3. Incoming stream is written to a temp spool file with backpressure handling
+4. Backend returns immediately with `{ jobId, status: 'RECEIVED' }`
+
+**Phase 2: Background Processing**
+5. Backend uploads spool file to Gemini in 16MB chunks (resumable upload protocol)
 6. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
-7. Frontend receives file URI, stores it in state for reuse across persona analyses
-8. Backend uses `createPartFromUri` to reference video in Gemini request
-9. Maximum video size: 2GB (enforced on frontend and backend)
-10. Error handling: Invalid MIME type and oversized files return 400; disk/upload errors return 500
+7. Job status updated: SPOOLING → UPLOADING → PROCESSING → ACTIVE
+
+**Phase 3: Frontend Polling**
+8. Frontend polls `GET /api/upload/status/:jobId` every 1.5s
+9. Progress updates shown to user in real-time
+10. Once ACTIVE, frontend receives fileUri and proceeds to analysis
+
+**Job Store**
+- In-memory Map stores job status (TTL: 1 hour)
+- Status: RECEIVED | SPOOLING | UPLOADING | PROCESSING | ACTIVE | ERROR
+- Progress: 0-100 percentage
+
+**Limits & Validation**
+- Maximum video size: 2GB (enforced on frontend and backend)
+- Invalid MIME type or oversized files return 400
+- Disk/upload errors return 500
 
 ### On-Demand Persona Flow
 The app uses an on-demand approach for cost efficiency:
@@ -76,7 +93,8 @@ The app uses an on-demand approach for cost efficiency:
 ### API Endpoints
 - `GET /api/health` - Health check
 - `GET /api/personas` - List available personas with metadata
-- `POST /api/upload` - Upload video file, returns file URI
+- `POST /api/upload` - Start video upload, returns `{ jobId, status }`
+- `GET /api/upload/status/:jobId` - Check upload job status and get fileUri when ready
 - `POST /api/analyze` - Analyze video with selected personas
   - Request: `{ title, synopsis, srtContent?, questions, language, fileUri, fileMimeType, personaIds }`
   - Response: `{ results: [{ personaId, status, report?, error?, validationWarnings? }] }`
