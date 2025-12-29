@@ -290,9 +290,9 @@ const App: React.FC = () => {
       </nav>
 
       {showSessionList && (
-        <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setShowSessionList(false)}>
+        <div className="fixed inset-0 bg-black/20 z-50" onClick={() => setShowSessionList(false)}>
           <div 
-            className="absolute top-24 right-8 md:right-12 w-80 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            className="absolute top-24 right-8 md:right-12 w-80 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-4 border-b border-slate-100 flex justify-between items-center">
