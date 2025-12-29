@@ -48,6 +48,12 @@ export interface AgentReport {
   validationWarnings?: string[];
 }
 
+export interface VideoFingerprint {
+  fileName: string;
+  fileSize: number;
+  lastModified: number;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -55,6 +61,7 @@ export interface Project {
   srtContent?: string;
   videoUrl?: string;
   videoFile?: File;
+  videoFingerprint?: VideoFingerprint;
   questions: string[];
   language: 'en' | 'zh-TW';
   selectedPersonaIds: string[];

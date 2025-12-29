@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Project, AgentReport, Persona } from '../types';
+import { Project, AgentReport, Persona, VideoFingerprint } from '../types';
 import { PERSONAS } from '../constants.tsx';
 import { Button } from './Button';
 import { Card, Badge, Pill, SeverityPill, Tabs } from './ui';
@@ -9,6 +9,7 @@ interface ScreeningRoomProps {
   reports: AgentReport[];
   availablePersonas: Persona[];
   onAddPersona: (personaId: string) => void;
+  onVideoReattach: (file: File, videoUrl: string) => void;
   isAnalyzing: boolean;
   analyzingPersonaId: string | null;
   statusMessage: string;
@@ -78,20 +79,46 @@ const ExpandableContent: React.FC<{ content: string; maxLength?: number }> = ({
   );
 };
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  return `${bytes}B`;
+};
+
+const verifyFingerprint = (file: File, fingerprint: VideoFingerprint): { match: boolean; issues: string[] } => {
+  const issues: string[] = [];
+  
+  if (file.name !== fingerprint.fileName) {
+    issues.push(`File name differs: expected "${fingerprint.fileName}", got "${file.name}"`);
+  }
+  if (file.size !== fingerprint.fileSize) {
+    issues.push(`File size differs: expected ${formatFileSize(fingerprint.fileSize)}, got ${formatFileSize(file.size)}`);
+  }
+  if (file.lastModified !== fingerprint.lastModified) {
+    issues.push(`Last modified date differs`);
+  }
+  
+  return { match: issues.length === 0, issues };
+};
+
 export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({ 
   project, 
   reports, 
   availablePersonas,
   onAddPersona,
+  onVideoReattach,
   isAnalyzing,
   analyzingPersonaId,
   statusMessage
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'summary' | 'highlights' | 'concerns'>('summary');
   const [activeReportIndex, setActiveReportIndex] = useState(0);
   const [showAddPersona, setShowAddPersona] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<'profile' | 'goals'>('profile');
+  const [fingerprintWarning, setFingerprintWarning] = useState<{ file: File; issues: string[] } | null>(null);
   
   const activeReport = reports[activeReportIndex];
   const activePersona = PERSONAS.find(p => p.id === activeReport?.personaId) || PERSONAS[0];
@@ -106,6 +133,31 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const handleAddPersona = (personaId: string) => {
     setShowAddPersona(false);
     onAddPersona(personaId);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (project.videoFingerprint) {
+      const result = verifyFingerprint(file, project.videoFingerprint);
+      if (!result.match) {
+        setFingerprintWarning({ file, issues: result.issues });
+        return;
+      }
+    }
+    
+    const videoUrl = URL.createObjectURL(file);
+    onVideoReattach(file, videoUrl);
+    setFingerprintWarning(null);
+  };
+
+  const handleConfirmMismatchedFile = () => {
+    if (fingerprintWarning) {
+      const videoUrl = URL.createObjectURL(fingerprintWarning.file);
+      onVideoReattach(fingerprintWarning.file, videoUrl);
+      setFingerprintWarning(null);
+    }
   };
 
   if (!activeReport || !activePersona) {
@@ -231,16 +283,97 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
         <div className="xl:col-span-8 p-6 lg:p-8 overflow-y-auto space-y-6 border-r border-slate-200/70">
           
           <section>
-            <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card">
-              <video 
-                ref={videoRef}
-                src={project.videoUrl} 
-                controls 
-                playsInline
-                preload="auto"
-                className="w-full h-full"
-              />
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            
+            {project.videoUrl ? (
+              <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card">
+                <video 
+                  ref={videoRef}
+                  src={project.videoUrl} 
+                  controls 
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full"
+                />
+              </div>
+            ) : (
+              <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden shadow-card border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-8">
+                <div className="w-16 h-16 bg-slate-200 rounded-2xl flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">Video Not Attached</h3>
+                {project.videoFingerprint ? (
+                  <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
+                    This screening was created from: <span className="font-medium text-slate-700">{project.videoFingerprint.fileName}</span> ({formatFileSize(project.videoFingerprint.fileSize)})
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
+                    To play the video and add more reviewers, please reattach the local file.
+                  </p>
+                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-6 py-3 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  Attach Local File
+                </button>
+              </div>
+            )}
+            
+            {fingerprintWarning && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setFingerprintWarning(null)}>
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">File Mismatch Detected</h3>
+                      <p className="text-sm text-slate-600">This doesn't appear to be the same file used in the original screening.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                    <ul className="text-sm text-slate-600 space-y-1">
+                      {fingerprintWarning.issues.map((issue, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-amber-500 mt-0.5">•</span>
+                          {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setFingerprintWarning(null)}
+                      className="flex-1 px-4 py-3 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                      Choose Different File
+                    </button>
+                    <button
+                      onClick={handleConfirmMismatchedFile}
+                      className="flex-1 px-4 py-3 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors"
+                    >
+                      Use Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="space-y-5">

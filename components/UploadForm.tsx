@@ -25,6 +25,11 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
       synopsis,
       videoFile,
       videoUrl: URL.createObjectURL(videoFile),
+      videoFingerprint: {
+        fileName: videoFile.name,
+        fileSize: videoFile.size,
+        lastModified: videoFile.lastModified,
+      },
       questions,
       language,
       selectedPersonaIds: [selectedPersonaId]

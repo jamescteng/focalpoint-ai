@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, varchar, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, varchar, integer, bigint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const sessions = pgTable("sessions", {
@@ -10,6 +10,8 @@ export const sessions = pgTable("sessions", {
   fileUri: text("file_uri"),
   fileMimeType: text("file_mime_type"),
   fileName: text("file_name"),
+  fileSize: bigint("file_size", { mode: "number" }),
+  fileLastModified: bigint("file_last_modified", { mode: "number" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -74,6 +74,11 @@ const App: React.FC = () => {
         questions: session.questions,
         language: session.language as 'en' | 'zh-TW',
         selectedPersonaIds: uniquePersonaIds,
+        videoFingerprint: session.fileName && session.fileSize && session.fileLastModified ? {
+          fileName: session.fileName,
+          fileSize: session.fileSize,
+          lastModified: session.fileLastModified,
+        } : undefined,
       });
       
       if (session.fileUri && session.fileMimeType && session.fileName) {
@@ -160,6 +165,8 @@ const App: React.FC = () => {
               fileUri: currentUploadResult.fileUri,
               fileMimeType: currentUploadResult.fileMimeType,
               fileName: currentUploadResult.fileName,
+              fileSize: p.videoFingerprint?.fileSize,
+              fileLastModified: p.videoFingerprint?.lastModified,
             });
           } catch (err: any) {
             console.error('Failed to update session with file info:', err);
@@ -255,6 +262,21 @@ const App: React.FC = () => {
     setErrorMessage(null);
     setState(AppState.IDLE);
     setShowSessionList(false);
+  };
+
+  const handleVideoReattach = (file: File, videoUrl: string) => {
+    if (project) {
+      setProject({
+        ...project,
+        videoFile: file,
+        videoUrl: videoUrl,
+        videoFingerprint: {
+          fileName: file.name,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+        },
+      });
+    }
   };
 
   const selectedPersonas = project 
@@ -377,6 +399,7 @@ const App: React.FC = () => {
               reports={reports}
               availablePersonas={availablePersonasToAdd}
               onAddPersona={addPersonaReport}
+              onVideoReattach={handleVideoReattach}
               isAnalyzing={analyzingPersonaId !== null}
               analyzingPersonaId={analyzingPersonaId}
               statusMessage={statusMessage}

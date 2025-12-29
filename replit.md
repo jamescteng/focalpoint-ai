@@ -227,3 +227,4 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 - **Auto-save**: Sessions and reports automatically saved to database
 - **Language Label**: Added "Report language:" label near language selector for clarity
 - **Updated default questions**: Removed "Is this film ready for festival run?" from defaults
+- **Video Reattach Feature**: When loading sessions from history, video is not available (stored only on user's device). Users can reattach the original video file to enable playback and add more reviewers. Fingerprint verification (fileName, fileSize, lastModified) warns if selected file doesn't match the original.

@@ -204,6 +204,8 @@ export interface DbSession {
   fileUri: string | null;
   fileMimeType: string | null;
   fileName: string | null;
+  fileSize: number | null;
+  fileLastModified: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -269,6 +271,8 @@ export const updateSession = async (id: number, data: {
   fileUri?: string;
   fileMimeType?: string;
   fileName?: string;
+  fileSize?: number;
+  fileLastModified?: number;
 }): Promise<DbSession> => {
   const response = await fetch(`/api/sessions/${id}`, {
     method: 'PUT',
