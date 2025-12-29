@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
+import { getExternalDomain } from "./domainUtils";
 
 const getOidcConfig = memoize(
   async () => {
@@ -58,21 +59,6 @@ async function upsertUser(claims: any) {
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
-}
-
-function getExternalDomain(req: any): string {
-  // Check x-forwarded-host first (set by proxies)
-  const forwardedHost = req.get('x-forwarded-host');
-  if (forwardedHost) {
-    return forwardedHost.split(',')[0].trim();
-  }
-  // Fall back to original host header (without port)
-  const host = req.get('host');
-  if (host) {
-    return host.split(':')[0];
-  }
-  // Last resort: use REPLIT_DEV_DOMAIN env var
-  return process.env.REPLIT_DEV_DOMAIN || req.hostname;
 }
 
 export async function setupAuth(app: Express) {
