@@ -377,7 +377,7 @@ interface StreamingUploadState {
 // =============================================================================
 // ASYNC UPLOAD JOB STORE
 // =============================================================================
-type UploadJobStatus = 'RECEIVED' | 'SPOOLING' | 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'ERROR';
+type UploadJobStatus = 'RECEIVED' | 'SPOOLING' | 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'ERROR' | 'ABANDONED';
 
 interface UploadJob {
   id: string;
@@ -390,7 +390,11 @@ interface UploadJob {
   error?: string;
   createdAt: number;
   updatedAt: number;
+  lastByteAt: number;
+  bytesReceived: number;
 }
+
+const STALE_JOB_THRESHOLD_MS = 30000;
 
 const uploadJobs = new Map<string, UploadJob>();
 const attemptIdToJobId = new Map<string, string>();
@@ -415,19 +419,45 @@ function getJobByAttemptId(attemptId: string): UploadJob | undefined {
 }
 
 function createJob(attemptId?: string): UploadJob {
+  const now = Date.now();
   const job: UploadJob = {
     id: generateJobId(),
     attemptId,
     status: 'RECEIVED',
     progress: 0,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
+    createdAt: now,
+    updatedAt: now,
+    lastByteAt: now,
+    bytesReceived: 0
   };
   uploadJobs.set(job.id, job);
   if (attemptId) {
     attemptIdToJobId.set(attemptId, job.id);
   }
   return job;
+}
+
+function isJobStale(job: UploadJob): boolean {
+  if (job.status !== 'SPOOLING' && job.status !== 'UPLOADING') {
+    return false;
+  }
+  return Date.now() - job.lastByteAt > STALE_JOB_THRESHOLD_MS;
+}
+
+function markJobAbandoned(job: UploadJob, reason: string): void {
+  job.status = 'ABANDONED';
+  job.error = reason;
+  job.updatedAt = Date.now();
+  if (job.attemptId) {
+    attemptIdToJobId.delete(job.attemptId);
+  }
+  FocalPointLogger.info("Job_Abandoned", { 
+    jobId: job.id, 
+    attemptId: job.attemptId,
+    reason,
+    bytesReceived: job.bytesReceived,
+    lastByteAt: new Date(job.lastByteAt).toISOString()
+  });
 }
 
 function updateJob(jobId: string, updates: Partial<UploadJob>): void {
@@ -774,16 +804,27 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   
   const existingJob = getJobByAttemptId(attemptId);
   if (existingJob) {
-    FocalPointLogger.info("Upload_Dedupe", { 
-      attemptId, 
-      existingJobId: existingJob.id, 
-      status: existingJob.status 
-    });
-    return res.json({ 
-      jobId: existingJob.id, 
-      status: existingJob.status,
-      message: 'Upload already in progress for this attempt'
-    });
+    if (isJobStale(existingJob)) {
+      markJobAbandoned(existingJob, 'Stale: no data received for 30+ seconds');
+      attemptIdToJobId.delete(attemptId);
+      FocalPointLogger.info("Upload_StaleJobReplaced", { 
+        attemptId, 
+        oldJobId: existingJob.id,
+        oldStatus: existingJob.status,
+        bytesReceived: existingJob.bytesReceived
+      });
+    } else {
+      FocalPointLogger.info("Upload_Dedupe", { 
+        attemptId, 
+        existingJobId: existingJob.id, 
+        status: existingJob.status 
+      });
+      return res.json({ 
+        jobId: existingJob.id, 
+        status: existingJob.status,
+        message: 'Upload already in progress for this attempt'
+      });
+    }
   }
   
   const job = createJob(attemptId);
@@ -803,6 +844,28 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
     const busboy = Busboy({ 
       headers: req.headers,
       limits: { fileSize: MAX_VIDEO_SIZE_BYTES }
+    });
+
+    let connectionAborted = false;
+    let streamCompleted = false;
+    
+    req.on('aborted', () => {
+      if (!connectionAborted && !streamCompleted) {
+        connectionAborted = true;
+        const currentJob = uploadJobs.get(job.id);
+        if (currentJob && (currentJob.status === 'RECEIVED' || currentJob.status === 'SPOOLING')) {
+          markJobAbandoned(currentJob, 'Client connection aborted');
+        }
+      }
+    });
+    
+    req.on('close', () => {
+      if (!connectionAborted && !streamCompleted) {
+        const currentJob = uploadJobs.get(job.id);
+        if (currentJob && currentJob.status === 'SPOOLING') {
+          markJobAbandoned(currentJob, 'Client connection closed unexpectedly');
+        }
+      }
     });
 
     let fileProcessed = false;
@@ -862,6 +925,11 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
           totalBytesReceived = bytesReceived;
           const canContinue = spoolWriteStream!.write(chunk);
           
+          updateJob(job.id, {
+            lastByteAt: Date.now(),
+            bytesReceived: bytesReceived
+          });
+          
           if (!canContinue) {
             fileStream.pause();
           }
@@ -920,6 +988,7 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
 
       busboy.on('finish', () => {
         FocalPointLogger.info("Busboy_Finish", "HTTP request body fully consumed");
+        streamCompleted = true;
         if (!fileProcessed) {
           resolveSpoolCompletion();
           reject(new Error("No video file provided."));

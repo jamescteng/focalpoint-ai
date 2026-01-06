@@ -62,6 +62,13 @@ The upload uses a job-based async architecture for responsive UI:
 - Client-side ref lock (uploadLockRef) prevents double submissions
 - Button disabled during upload with "Uploading... do not refresh" message
 
+**Stale Job Recovery**
+- Jobs track `lastByteAt` and `bytesReceived` on every data chunk
+- Jobs with no data for 30+ seconds while SPOOLING/UPLOADING are considered stale
+- Stale jobs are marked ABANDONED and cleared from attemptId mapping
+- Retry with same attemptId will create fresh upload after stale job recovery
+- Connection abort/close handlers immediately mark jobs as ABANDONED
+
 **Limits & Validation**
 - Maximum video size: 2GB (enforced on frontend and backend)
 - X-Upload-Attempt-Id header required (format: attempt_<timestamp>_<random>, 15-50 chars)
