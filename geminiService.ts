@@ -12,6 +12,31 @@ const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLL_TIME_MS = 15 * 60 * 1000;
 
+const MAX_UPLOAD_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+function getUploadBaseUrl(): string {
+  const hostname = window.location.hostname;
+  const port = window.location.port;
+  
+  if (hostname === 'localhost' && port === '5000') {
+    return 'http://localhost:3001';
+  }
+  
+  return '';
+}
+
+function isConnectionError(error: unknown): boolean {
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return true;
+  }
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('network') || msg.includes('abort') || msg.includes('failed to fetch');
+  }
+  return false;
+}
+
 export interface UploadResult {
   fileUri: string;
   fileMimeType: string;
@@ -59,7 +84,8 @@ async function safeJsonParse<T>(response: Response): Promise<T> {
 
 async function pollUploadStatus(
   jobId: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  onStatusMessage?: (message: string) => void
 ): Promise<UploadResult> {
   const startTime = Date.now();
   
@@ -69,7 +95,8 @@ async function pollUploadStatus(
       throw new Error('Upload timed out. Please try again with a smaller video.');
     }
     
-    const response = await fetch(`/api/upload/status/${jobId}`);
+    const statusUrl = `${getUploadBaseUrl()}/api/upload/status/${jobId}`;
+    const response = await fetch(statusUrl);
     
     if (!response.ok) {
       const errorData = await safeJsonParse<{ error?: string }>(response);
@@ -101,51 +128,88 @@ async function pollUploadStatus(
 export const uploadVideo = async (
   file: File,
   onProgress?: (progress: number) => void,
-  attemptId?: string
+  attemptId?: string,
+  onStatusMessage?: (message: string) => void
 ): Promise<UploadResult> => {
   const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const uploadAttemptId = attemptId || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   
   FocalPointLogger.info("Upload_Start", { 
     name: file.name, 
     size: `${fileSizeMB} MB`,
-    attemptId: uploadAttemptId,
-    requestId 
+    attemptId: uploadAttemptId
   });
 
   if (file.size > MAX_VIDEO_SIZE_BYTES) {
     throw new Error(`Video file is too large (${fileSizeMB}MB). Maximum size is ${MAX_VIDEO_SIZE_MB}MB.`);
   }
 
-  const formData = new FormData();
-  formData.append('video', file);
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+    try {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      
+      if (attempt > 1) {
+        onStatusMessage?.(`Connection interrupted. Resuming upload... (attempt ${attempt}/${MAX_UPLOAD_RETRIES})`);
+        FocalPointLogger.info("Upload_Retry", { attempt, attemptId: uploadAttemptId });
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      }
 
-  onProgress?.(1);
+      const formData = new FormData();
+      formData.append('video', file);
 
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    headers: {
-      'X-Upload-Attempt-Id': uploadAttemptId,
-      'X-Request-Id': requestId
-    },
-    body: formData
-  });
+      onProgress?.(1);
 
-  if (!response.ok) {
-    const errorData = await safeJsonParse<{ error?: string }>(response);
-    throw new Error(errorData.error || `Upload failed: ${response.status}`);
+      const uploadUrl = `${getUploadBaseUrl()}/api/upload`;
+      FocalPointLogger.info("Upload_Request", { url: uploadUrl, attempt, attemptId: uploadAttemptId });
+      
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'X-Upload-Attempt-Id': uploadAttemptId,
+          'X-Request-Id': requestId
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await safeJsonParse<{ error?: string }>(response);
+        throw new Error(errorData.error || `Upload failed: ${response.status}`);
+      }
+
+      const startResult = await safeJsonParse<{ jobId: string; status: string; message?: string }>(response);
+      
+      if (startResult.message?.includes('already in progress')) {
+        FocalPointLogger.info("Upload_Resumed", { jobId: startResult.jobId });
+        onStatusMessage?.('Resuming previous upload...');
+      } else {
+        FocalPointLogger.info("Upload_JobCreated", { jobId: startResult.jobId });
+      }
+      
+      onProgress?.(3);
+      onStatusMessage?.('Processing video...');
+
+      const result = await pollUploadStatus(startResult.jobId, onProgress, onStatusMessage);
+      FocalPointLogger.info("Upload_Complete", result);
+      
+      return result;
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      FocalPointLogger.warn("Upload_Error", `Attempt ${attempt} failed: ${lastError.message}`);
+      
+      if (!isConnectionError(error) || attempt === MAX_UPLOAD_RETRIES) {
+        break;
+      }
+    }
   }
-
-  const startResult = await safeJsonParse<{ jobId: string; status: string }>(response);
-  FocalPointLogger.info("Upload_JobCreated", { jobId: startResult.jobId });
   
-  onProgress?.(3);
-
-  const result = await pollUploadStatus(startResult.jobId, onProgress);
-  FocalPointLogger.info("Upload_Complete", result);
+  if (lastError && isConnectionError(lastError)) {
+    throw new Error('Upload failed after multiple attempts. Please check your connection and try again.');
+  }
   
-  return result;
+  throw lastError || new Error('Upload failed unexpectedly');
 };
 
 export const analyzeWithPersona = async (

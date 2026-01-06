@@ -69,6 +69,13 @@ The upload uses a job-based async architecture for responsive UI:
 - Retry with same attemptId will create fresh upload after stale job recovery
 - Connection abort/close handlers immediately mark jobs as ABANDONED
 
+**Upload Retry & UX**
+- Automatic retry up to 3 times on connection errors
+- Shows "Connection interrupted. Resuming upload..." instead of raw errors
+- Same attemptId preserved across retries for seamless recovery
+- Status messages update in real-time during upload process
+- Development mode bypasses Vite proxy for uploads (direct to :3001)
+
 **Limits & Validation**
 - Maximum video size: 2GB (enforced on frontend and backend)
 - X-Upload-Attempt-Id header required (format: attempt_<timestamp>_<random>, 15-50 chars)

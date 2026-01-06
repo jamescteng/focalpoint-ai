@@ -169,9 +169,16 @@ const App: React.FC = () => {
     if (p.videoFile) {
       try {
         setStatusMessage(isZH ? "上傳視頻中... 請勿重新整理頁面" : "Uploading video... Please do not refresh the page.");
-        currentUploadResult = await uploadVideo(p.videoFile, (progress) => {
-          setProcessProgress(Math.floor(progress * 0.4));
-        }, attemptId);
+        currentUploadResult = await uploadVideo(
+          p.videoFile, 
+          (progress) => {
+            setProcessProgress(Math.floor(progress * 0.4));
+          }, 
+          attemptId,
+          (message) => {
+            setStatusMessage(message);
+          }
+        );
         setUploadResult(currentUploadResult);
         setProcessProgress(40);
         setStatusMessage(isZH ? "視頻處理完成" : "Video uploaded and processed");
