@@ -9,14 +9,24 @@
     "build": "vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "preview": "vite preview",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:server": "NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.cjs",
+    "test:all": "npm run test && npm run test:server"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/busboy": "^1.5.4",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/pg": "^8.16.0",
+    "@types/supertest": "^6.0.3",
     "busboy": "^1.6.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
@@ -24,10 +34,15 @@
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
+    "jest": "^30.2.0",
+    "jsdom": "^27.4.0",
     "pg": "^8.16.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "tsx": "^4.21.0"
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.16"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

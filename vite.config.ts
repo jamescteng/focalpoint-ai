@@ -33,6 +33,13 @@ export default defineConfig(() => {
           '@': path.resolve(__dirname, '.'),
           '@assets': path.resolve(__dirname, 'attached_assets'),
         }
+      },
+      test: {
+        globals: true,
+        environment: 'jsdom',
+        setupFiles: ['./vitest.setup.ts'],
+        include: ['**/*.test.{ts,tsx}'],
+        exclude: ['node_modules', 'server/**/*.test.ts'],
       }
     };
 });
