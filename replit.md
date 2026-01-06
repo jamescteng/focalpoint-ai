@@ -55,8 +55,16 @@ The upload uses a job-based async architecture for responsive UI:
 - Status: RECEIVED | SPOOLING | UPLOADING | PROCESSING | ACTIVE | ERROR
 - Progress: 0-100 percentage
 
+**Upload Idempotency**
+- Client generates attemptId (`attempt_<timestamp>_<random>`) on form submit
+- Server requires X-Upload-Attempt-Id header on /api/upload
+- Duplicate attemptIds return existing job (no re-upload)
+- Client-side ref lock (uploadLockRef) prevents double submissions
+- Button disabled during upload with "Uploading... do not refresh" message
+
 **Limits & Validation**
 - Maximum video size: 2GB (enforced on frontend and backend)
+- X-Upload-Attempt-Id header required (format: attempt_<timestamp>_<random>, 15-50 chars)
 - Invalid MIME type or oversized files return 400
 - Disk/upload errors return 500
 
