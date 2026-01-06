@@ -1,0 +1,197 @@
+1) What the logs do prove
+
+The pattern you described strongly suggests:
+
+An upload started
+
+Progress reached 200MB
+
+Then a second upload began (same file) and progress restarted at 50MB
+
+So yes: the client is re-initiating an upload.
+
+But logs alone do not tell you why:
+
+automatic retry?
+
+UI double submit?
+
+React re-render triggers?
+
+proxy reset causing client retry?
+
+service worker?
+
+user clicking again?
+
+You need to identify which of these it is.
+
+2) “Browser/fetch timeout” is usually not the culprit
+Important: fetch() has no default timeout
+
+In browsers, fetch will typically wait indefinitely unless:
+
+you used an AbortController timeout
+
+the browser/network/proxy resets the connection
+
+the page is navigated away / reloaded
+
+your app code throws and retries
+
+So unless your frontend code explicitly times out, this is unlikely to be a pure “fetch timeout.”
+
+Vite proxy timeout is possible, but not the first thing I’d blame
+
+In dev, Vite’s proxy can emit ECONNRESET, but what you described is “a new upload started,” which often comes from client-side retry logic, not Vite.
+
+3) The most common real causes (ranked)
+Cause A — Double-submit / retry in your UI logic (very common)
+
+Examples:
+
+button not disabled after click
+
+onSubmit fires twice (form submit + button click)
+
+React StrictMode in dev can double-invoke some lifecycles (not events typically, but effects and state patterns can create duplicates)
+
+your upload function gets called from two code paths (e.g., useEffect + handler)
+
+Tell-tale sign: two POST /api/upload requests in Network tab with different request IDs, very close in time.
+
+Cause B — Proxy/network connection reset → app retries
+
+If the connection drops mid-stream, some code may:
+
+catch error
+
+retry automatically
+
+re-send the same file
+
+Tell-tale sign: first request shows (failed) or ERR_CONNECTION_RESET, then a second starts.
+
+Cause C — Frontend “helpful retry” wrapper
+
+If you have a generic API helper that retries on failure (axios-retry, custom wrapper), it may re-run the upload.
+
+Cause D — User clicked again due to poor progress UI
+
+Possible, but you can rule this out quickly by disabling the button and adding a lock.
+
+4) What I would do immediately (concrete debugging steps)
+Step 1 — Confirm: is it one upload request restarting, or two concurrent ones?
+
+In Chrome DevTools → Network:
+
+Filter by /api/upload
+
+Check:
+
+how many requests exist?
+
+are they overlapping in time?
+
+what is the failure reason for the first?
+
+does the second start only after the first fails?
+
+This gives you the real root cause in minutes.
+
+Step 2 — Add an idempotency key per upload attempt
+
+Generate uploadAttemptId in the browser and attach it:
+
+as a header: X-Upload-Attempt-Id
+
+or form field
+
+Log it server-side in Stream_Start.
+
+If you see:
+
+same attemptId restarting → client retry/resend logic
+
+different attemptIds → user/double submit
+
+Step 3 — Implement a frontend “upload lock”
+
+Even before you find the bug, make it impossible to double-submit:
+
+disable upload button while isUploading || isProcessing
+
+block re-entry:
+
+if (uploadInFlightRef.current) return;
+uploadInFlightRef.current = true;
+try { ... } finally { uploadInFlightRef.current = false; }
+
+
+This alone eliminates 50% of these issues.
+
+5) The right fixes (prioritized)
+Fix 1 — Make upload job-based and resumable on your side
+
+Even if the client retries, it should not restart from 0.
+
+If you keep server-mediated upload:
+
+return uploadJobId immediately
+
+allow client to reconnect and ask status
+
+don’t re-initiate the entire stream
+
+Fix 2 — Improve progress UI and disable controls
+
+Add a clear, persistent status:
+
+“Uploading (200MB / 312MB)”
+
+“Preparing video…”
+
+“Ready to analyze”
+
+And disable:
+
+upload button
+
+navigation that triggers upload re-run
+
+Fix 3 — Stop using Vite proxy for huge uploads in dev (optional but useful)
+
+Vite proxy is fine for small requests, but for huge uploads it can add flakiness.
+Two better dev options:
+
+call backend directly from frontend (CORS allow localhost)
+
+or run them on same port (serve frontend assets via Express)
+
+Fix 4 — Only if you have explicit timeouts: increase them
+
+If you do have an AbortController timeout, increase it or remove it for upload.
+If Vite proxy has a timeout configured, increase it.
+But this is not the first-line fix.
+
+6) What I think of your dev’s proposed fix list
+
+“Increase Vite proxy timeout” → could help in dev, but not root cause in most cases
+
+“Add longer timeout to fetch” → only relevant if you explicitly set one; otherwise it’s a misunderstanding
+
+“Add more visible progress” → absolutely correct and should be done regardless
+
+The missing items from their plan are:
+
+idempotency key
+
+upload lock
+
+Network tab proof of failure cause
+
+server-side dedupe / job-based upload semantics
+
+7) What to send back to your dev (copy/paste)
+
+Fetch doesn’t have a default timeout unless we set AbortController, so “fetch timeout” is unlikely unless we implemented one. Let’s confirm the root cause in DevTools Network: do we see two /api/upload requests, and does the first fail with ECONNRESET/other? Add X-Upload-Attempt-Id header so we can correlate logs. Also implement an upload lock (disable button + guard re-entry) to prevent double-submit. After that, if we still see resets, we can adjust Vite proxy or bypass it for large uploads in dev.

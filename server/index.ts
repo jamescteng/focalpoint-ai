@@ -381,6 +381,7 @@ type UploadJobStatus = 'RECEIVED' | 'SPOOLING' | 'UPLOADING' | 'PROCESSING' | 'A
 
 interface UploadJob {
   id: string;
+  attemptId?: string;
   status: UploadJobStatus;
   progress: number;
   fileUri?: string;
@@ -392,22 +393,40 @@ interface UploadJob {
 }
 
 const uploadJobs = new Map<string, UploadJob>();
+const attemptIdToJobId = new Map<string, string>();
 
 const JOB_TTL_MS = 60 * 60 * 1000; // 1 hour
+const ATTEMPT_ID_PATTERN = /^attempt_\d+_[a-z0-9]+$/;
+
+function isValidAttemptId(attemptId: string): boolean {
+  return ATTEMPT_ID_PATTERN.test(attemptId) && attemptId.length >= 15 && attemptId.length <= 50;
+}
 
 function generateJobId(): string {
   return `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function createJob(): UploadJob {
+function getJobByAttemptId(attemptId: string): UploadJob | undefined {
+  const jobId = attemptIdToJobId.get(attemptId);
+  if (jobId) {
+    return uploadJobs.get(jobId);
+  }
+  return undefined;
+}
+
+function createJob(attemptId?: string): UploadJob {
   const job: UploadJob = {
     id: generateJobId(),
+    attemptId,
     status: 'RECEIVED',
     progress: 0,
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
   uploadJobs.set(job.id, job);
+  if (attemptId) {
+    attemptIdToJobId.set(attemptId, job.id);
+  }
   return job;
 }
 
@@ -423,6 +442,9 @@ function cleanupOldJobs(): void {
   for (const [id, job] of uploadJobs.entries()) {
     if (now - job.createdAt > JOB_TTL_MS) {
       uploadJobs.delete(id);
+      if (job.attemptId) {
+        attemptIdToJobId.delete(job.attemptId);
+      }
     }
   }
 }
@@ -735,7 +757,36 @@ async function uploadFromSpoolFile(
 app.post('/api/upload', uploadLimiter, async (req, res) => {
   logMem('upload_start');
   
-  const job = createJob();
+  const attemptId = req.headers['x-upload-attempt-id'] as string | undefined;
+  const requestId = req.headers['x-request-id'] as string | undefined;
+  
+  FocalPointLogger.info("Upload_Request", { attemptId, requestId });
+  
+  if (!attemptId) {
+    FocalPointLogger.warn("Upload_MissingAttemptId", "X-Upload-Attempt-Id header is required");
+    return res.status(400).json({ error: "X-Upload-Attempt-Id header is required." });
+  }
+  
+  if (!isValidAttemptId(attemptId)) {
+    FocalPointLogger.warn("Upload_InvalidAttemptId", `Invalid attemptId: ${attemptId}`);
+    return res.status(400).json({ error: "Invalid X-Upload-Attempt-Id format." });
+  }
+  
+  const existingJob = getJobByAttemptId(attemptId);
+  if (existingJob) {
+    FocalPointLogger.info("Upload_Dedupe", { 
+      attemptId, 
+      existingJobId: existingJob.id, 
+      status: existingJob.status 
+    });
+    return res.json({ 
+      jobId: existingJob.id, 
+      status: existingJob.status,
+      message: 'Upload already in progress for this attempt'
+    });
+  }
+  
+  const job = createJob(attemptId);
   let spoolPath: string | null = null;
   let spoolWriteStream: fs.WriteStream | null = null;
   let fileMimeType: string = '';
@@ -785,7 +836,7 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
           return;
         }
 
-        FocalPointLogger.info("Stream_Start", { filename, mimeType });
+        FocalPointLogger.info("Stream_Start", { filename, mimeType, attemptId, jobId: job.id });
         updateJob(job.id, { status: 'SPOOLING', progress: 1 });
 
         spoolPath = path.join(os.tmpdir(), `focalpoint-spool-${Date.now()}-${Math.random().toString(36).slice(2)}`);

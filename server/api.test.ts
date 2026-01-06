@@ -226,3 +226,103 @@ describe('Error Sanitization', () => {
     expect(genericMessage).not.toContain('Error:');
   });
 });
+
+describe('Upload Idempotency', () => {
+  const ATTEMPT_ID_PATTERN = /^attempt_\d+_[a-z0-9]+$/;
+  
+  function isValidAttemptId(attemptId: string): boolean {
+    return ATTEMPT_ID_PATTERN.test(attemptId) && attemptId.length >= 15 && attemptId.length <= 50;
+  }
+
+  describe('attemptId validation', () => {
+    it('accepts valid attemptId format', () => {
+      expect(isValidAttemptId('attempt_1704567890123_abc123def')).toBe(true);
+      expect(isValidAttemptId('attempt_1234567890_abcdefgh')).toBe(true);
+    });
+
+    it('rejects invalid attemptId formats', () => {
+      expect(isValidAttemptId('')).toBe(false);
+      expect(isValidAttemptId('invalid')).toBe(false);
+      expect(isValidAttemptId('attempt_abc_123')).toBe(false);
+      expect(isValidAttemptId('attempt_123')).toBe(false);
+      expect(isValidAttemptId('ATTEMPT_123_abc')).toBe(false);
+    });
+
+    it('rejects attemptIds that are too short', () => {
+      expect(isValidAttemptId('attempt_1_a')).toBe(false);
+    });
+
+    it('rejects attemptIds that are too long', () => {
+      const longId = 'attempt_1234567890123456789012345678901234567890_abc';
+      expect(isValidAttemptId(longId)).toBe(false);
+    });
+
+    it('attemptId is required for uploads', () => {
+      const mockValidateRequest = (attemptId: string | undefined) => {
+        if (!attemptId) {
+          return { status: 400, error: 'X-Upload-Attempt-Id header is required.' };
+        }
+        if (!isValidAttemptId(attemptId)) {
+          return { status: 400, error: 'Invalid X-Upload-Attempt-Id format.' };
+        }
+        return { status: 200 };
+      };
+      
+      expect(mockValidateRequest(undefined).status).toBe(400);
+      expect(mockValidateRequest('invalid').status).toBe(400);
+      expect(mockValidateRequest('attempt_1234567890_abcdefgh').status).toBe(200);
+    });
+  });
+
+  describe('deduplication logic', () => {
+    it('same attemptId should map to same jobId', () => {
+      const attemptIdToJobId = new Map<string, string>();
+      const attemptId = 'attempt_1704567890123_abc123def';
+      const jobId = 'upload_1704567890123_xyz789';
+      
+      attemptIdToJobId.set(attemptId, jobId);
+      
+      expect(attemptIdToJobId.get(attemptId)).toBe(jobId);
+      expect(attemptIdToJobId.get('attempt_different_id')).toBeUndefined();
+    });
+
+    it('duplicate attempts should return existing job', () => {
+      const jobs = new Map<string, { id: string; status: string }>();
+      const attemptIdToJobId = new Map<string, string>();
+      
+      const attemptId = 'attempt_1704567890123_abc123def';
+      const job = { id: 'upload_123_xyz', status: 'SPOOLING' };
+      
+      jobs.set(job.id, job);
+      attemptIdToJobId.set(attemptId, job.id);
+      
+      const existingJobId = attemptIdToJobId.get(attemptId);
+      const existingJob = existingJobId ? jobs.get(existingJobId) : undefined;
+      
+      expect(existingJob).toBeDefined();
+      expect(existingJob?.id).toBe(job.id);
+      expect(existingJob?.status).toBe('SPOOLING');
+    });
+  });
+
+  describe('client-side lock behavior', () => {
+    it('ref-based lock prevents concurrent submissions', () => {
+      let uploadLockRef = { current: false };
+      
+      const startAnalysis = () => {
+        if (uploadLockRef.current) {
+          return 'blocked';
+        }
+        uploadLockRef.current = true;
+        return 'started';
+      };
+      
+      expect(startAnalysis()).toBe('started');
+      expect(startAnalysis()).toBe('blocked');
+      expect(startAnalysis()).toBe('blocked');
+      
+      uploadLockRef.current = false;
+      expect(startAnalysis()).toBe('started');
+    });
+  });
+});

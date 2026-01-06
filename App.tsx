@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Project, AgentReport } from './types';
 import { PERSONAS } from './constants.tsx';
 import { UploadForm } from './components/UploadForm';
@@ -17,6 +17,10 @@ import {
   DbSession,
   DbReport
 } from './geminiService';
+
+function generateAttemptId(): string {
+  return `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function dbReportToAgentReport(dbReport: DbReport): AgentReport {
   return {
@@ -38,6 +42,9 @@ const App: React.FC = () => {
   const [processProgress, setProcessProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [analyzingPersonaId, setAnalyzingPersonaId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const uploadLockRef = useRef(false);
   
   const [sessions, setSessions] = useState<DbSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
@@ -124,6 +131,16 @@ const App: React.FC = () => {
   };
 
   const startAnalysis = async (p: Project) => {
+    if (uploadLockRef.current) {
+      console.warn('[FocalPoint] Upload already in progress, ignoring duplicate submission');
+      return;
+    }
+    uploadLockRef.current = true;
+    setIsSubmitting(true);
+    
+    const attemptId = generateAttemptId();
+    console.debug('[FocalPoint] Starting analysis with attemptId:', attemptId);
+    
     setErrorMessage(null);
     setProject(p);
     setState(AppState.ANALYZING);
@@ -151,10 +168,10 @@ const App: React.FC = () => {
     
     if (p.videoFile) {
       try {
-        setStatusMessage(isZH ? "上傳視頻中..." : "Uploading video to analysis engine...");
+        setStatusMessage(isZH ? "上傳視頻中... 請勿重新整理頁面" : "Uploading video... Please do not refresh the page.");
         currentUploadResult = await uploadVideo(p.videoFile, (progress) => {
           setProcessProgress(Math.floor(progress * 0.4));
-        });
+        }, attemptId);
         setUploadResult(currentUploadResult);
         setProcessProgress(40);
         setStatusMessage(isZH ? "視頻處理完成" : "Video uploaded and processed");
@@ -175,6 +192,8 @@ const App: React.FC = () => {
       } catch (e: any) {
         setErrorMessage(e.message || "Failed to upload video file.");
         setState(AppState.IDLE);
+        uploadLockRef.current = false;
+        setIsSubmitting(false);
         return;
       }
     }
@@ -182,6 +201,8 @@ const App: React.FC = () => {
     if (!currentUploadResult) {
       setErrorMessage("Video file is required for analysis.");
       setState(AppState.IDLE);
+      uploadLockRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
@@ -216,6 +237,9 @@ const App: React.FC = () => {
       setErrorMessage(err.message || "The appraisal engine encountered a technical fault.");
       setAnalyzingPersonaId(null);
       setState(AppState.IDLE);
+    } finally {
+      uploadLockRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -377,7 +401,7 @@ const App: React.FC = () => {
                 {errorMessage}
               </div>
             )}
-            <UploadForm onStart={startAnalysis} />
+            <UploadForm onStart={startAnalysis} isSubmitting={isSubmitting} />
           </div>
         )}
 

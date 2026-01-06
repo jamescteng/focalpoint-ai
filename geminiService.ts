@@ -100,10 +100,19 @@ async function pollUploadStatus(
 
 export const uploadVideo = async (
   file: File,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  attemptId?: string
 ): Promise<UploadResult> => {
   const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-  FocalPointLogger.info("Upload_Start", { name: file.name, size: `${fileSizeMB} MB` });
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const uploadAttemptId = attemptId || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  
+  FocalPointLogger.info("Upload_Start", { 
+    name: file.name, 
+    size: `${fileSizeMB} MB`,
+    attemptId: uploadAttemptId,
+    requestId 
+  });
 
   if (file.size > MAX_VIDEO_SIZE_BYTES) {
     throw new Error(`Video file is too large (${fileSizeMB}MB). Maximum size is ${MAX_VIDEO_SIZE_MB}MB.`);
@@ -116,6 +125,10 @@ export const uploadVideo = async (
 
   const response = await fetch('/api/upload', {
     method: 'POST',
+    headers: {
+      'X-Upload-Attempt-Id': uploadAttemptId,
+      'X-Request-Id': requestId
+    },
     body: formData
   });
 

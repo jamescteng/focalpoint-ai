@@ -5,9 +5,10 @@ import { INITIAL_QUESTIONS, PERSONAS } from '../constants.tsx';
 
 interface UploadFormProps {
   onStart: (project: Project) => void;
+  isSubmitting?: boolean;
 }
 
-export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
+export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = false }) => {
   const [title, setTitle] = useState('');
   const [synopsis, setSynopsis] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -17,7 +18,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!videoFile) return;
+    if (!videoFile || isSubmitting) return;
 
     onStart({
       id: Math.random().toString(36).substr(2, 9),
@@ -237,10 +238,11 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart }) => {
 
         <Button 
           type="submit" 
-          className="w-full py-4 rounded-xl text-base font-semibold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all" 
+          className="w-full py-4 rounded-xl text-base font-semibold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:translate-y-0" 
           size="lg"
+          disabled={isSubmitting || !videoFile}
         >
-          Start Review
+          {isSubmitting ? 'Starting Review...' : 'Start Review'}
         </Button>
       </form>
     </div>
