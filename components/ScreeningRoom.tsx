@@ -293,6 +293,56 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
     setDialogueJobId(null);
   };
 
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    const fetchExistingDialogue = async () => {
+      try {
+        const response = await fetch(`/api/dialogue/session/${sessionId}`);
+        if (!response.ok) {
+          console.warn('[Dialogue] Failed to fetch session dialogues:', response.status);
+          return;
+        }
+        
+        const { dialogues } = await response.json();
+        if (!dialogues || dialogues.length === 0) return;
+        
+        const sortedByDate = [...dialogues].sort((a: any, b: any) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        
+        const latest = sortedByDate[0];
+        
+        if (latest.status === 'complete' && latest.audioStorageKey) {
+          const resultResponse = await fetch(`/api/dialogue/result/${latest.id}`);
+          if (resultResponse.ok) {
+            const result = await resultResponse.json();
+            setDialogueResult({
+              audioUrl: result.audioUrl,
+              transcript: result.transcript,
+              participants: result.script.participants,
+              turns: result.script.turns
+            });
+            setDialogueStatus('complete');
+            setDialogueJobId(latest.id);
+          }
+        } else if (latest.status === 'failed') {
+          setDialogueJobId(latest.id);
+          setDialogueError(latest.lastError || 'Previous generation failed');
+          setDialogueStatus('failed');
+        } else if (latest.status === 'queued' || latest.status === 'scripting' || latest.status === 'rendering') {
+          setDialogueJobId(latest.id);
+          setDialogueStatus('generating');
+          pollDialogueStatus(latest.id);
+        }
+      } catch (err) {
+        console.error('[Dialogue] Failed to fetch existing:', err);
+      }
+    };
+    
+    fetchExistingDialogue();
+  }, [sessionId, pollDialogueStatus]);
+
   const completedPersonaIds = reports.map(r => r.personaId);
 
   if (!activeReport || !activePersona) {

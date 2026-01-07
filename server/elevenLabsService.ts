@@ -42,13 +42,18 @@ export function isLanguageSupported(_personaId: string, _language: 'en' | 'zh-TW
   return true;
 }
 
+function getModelId(language: 'en' | 'zh-TW'): string {
+  return language === 'zh-TW' ? 'eleven_multilingual_v2' : 'eleven_v3';
+}
+
 async function textToSpeech(text: string, voiceId: string, language: 'en' | 'zh-TW'): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY not configured');
   }
 
-  const stability = 0.0; // Creative mode for v3
+  const modelId = getModelId(language);
+  const stability = modelId === 'eleven_v3' ? 0.0 : 0.5;
 
   const response = await fetch(`${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`, {
     method: 'POST',
@@ -59,7 +64,7 @@ async function textToSpeech(text: string, voiceId: string, language: 'en' | 'zh-
     },
     body: JSON.stringify({
       text,
-      model_id: 'eleven_v3',
+      model_id: modelId,
       voice_settings: {
         stability,
         similarity_boost: 0.65
@@ -87,7 +92,8 @@ export async function generateAudio(
   try {
     const fullText = getAudioText(script);
 
-    console.log(`[ElevenLabs] Generating audio for ${personaId}, ${fullText.length} chars, model: eleven_v3`);
+    const modelId = getModelId(language);
+    console.log(`[ElevenLabs] Generating audio for ${personaId}, ${fullText.length} chars, model: ${modelId}`);
     
     const audioBuffer = await textToSpeech(fullText, voiceId, language);
     

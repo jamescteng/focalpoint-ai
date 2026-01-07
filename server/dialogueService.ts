@@ -310,6 +310,10 @@ async function generateDialogueScript(
   return dialogueScript;
 }
 
+function getDialogueModelId(language: 'en' | 'zh-TW'): string {
+  return language === 'zh-TW' ? 'eleven_multilingual_v2' : 'eleven_v3';
+}
+
 async function textToDialogue(
   script: DialogueScript
 ): Promise<ArrayBuffer> {
@@ -333,7 +337,8 @@ async function textToDialogue(
     };
   });
 
-  console.log(`[Dialogue] Generating audio with ${dialogueInputs.length} turns`);
+  const modelId = getDialogueModelId(script.language);
+  console.log(`[Dialogue] Generating audio with ${dialogueInputs.length} turns, model: ${modelId}`);
 
   const response = await fetch(`${ELEVENLABS_API_URL}/text-to-dialogue`, {
     method: 'POST',
@@ -344,6 +349,7 @@ async function textToDialogue(
     },
     body: JSON.stringify({
       dialogue: dialogueInputs,
+      model_id: modelId,
       output_format: 'mp3_44100_128'
     })
   });
