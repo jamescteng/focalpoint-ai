@@ -44,6 +44,38 @@ function getAudioTags(language: 'en' | 'zh-TW') {
   return language === 'zh-TW' ? AUDIO_TAGS_ZH : AUDIO_TAGS_EN;
 }
 
+const OPENING_STYLES_EN = [
+  'Start with a casual observation about a specific scene that stood out',
+  'Begin with one reviewer expressing initial surprise about something unexpected',
+  'Open with a reflective moment about the emotional impact of the film',
+  'Start mid-thought as if continuing a hallway conversation after the screening',
+  'Begin with a direct question from one reviewer to the other about their reaction'
+];
+
+const OPENING_STYLES_ZH = [
+  '以對某個特別場景的隨意觀察開始',
+  '以一位評論者對某個出乎意料之處表達驚訝開始',
+  '以對影片情感衝擊的反思開始',
+  '像是在放映後走廊對話的延續，從話題中間開始',
+  '以一位評論者直接問另一位的反應開始'
+];
+
+const CLOSING_STYLES_EN = [
+  'End with thoughts on who would most enjoy this film',
+  'Close with a brief mention of what lingers after watching',
+  'Finish with contrasting final takeaways from each reviewer',
+  'End with speculation about the filmmaker\'s intentions',
+  'Close with a quick rating or recommendation style'
+];
+
+const CLOSING_STYLES_ZH = [
+  '以誰最適合看這部片的想法結束',
+  '以觀影後最深刻的餘韻結束',
+  '以兩位評論者對比的最終收穫結束',
+  '以對導演意圖的推測結束',
+  '以簡短的評分或推薦方式結束'
+];
+
 function buildDialoguePrompt(
   session: Session,
   reportA: Report,
@@ -53,6 +85,12 @@ function buildDialoguePrompt(
   language: 'en' | 'zh-TW'
 ): string {
   const langName = language === 'zh-TW' ? '繁體中文（台灣口語）' : 'English';
+  
+  const openingIdx = Math.floor(Math.random() * OPENING_STYLES_EN.length);
+  const closingIdx = Math.floor(Math.random() * CLOSING_STYLES_EN.length);
+  const openingStyle = language === 'zh-TW' ? OPENING_STYLES_ZH[openingIdx] : OPENING_STYLES_EN[openingIdx];
+  const closingStyle = language === 'zh-TW' ? CLOSING_STYLES_ZH[closingIdx] : CLOSING_STYLES_EN[closingIdx];
+  const firstSpeaker = Math.random() > 0.5 ? personaAConfig.name : personaBConfig.name;
   
   const enPrompt = `
 You are a professional podcast script writer. Transform these two film reviewer reports into a natural, engaging two-person conversation.
@@ -97,9 +135,9 @@ HARD CONSTRAINTS:
 8. Natural conversation flow with reactions ("Interesting point...", "I see it differently...")
 
 STRUCTURE:
-1. Opening: Brief intro acknowledging they just watched the film together
+1. Opening: ${openingStyle}. ${firstSpeaker} speaks first.
 2. Body: Discuss highlights and concerns naturally, weaving between reviewers
-3. Closing: Brief summary of overall impressions
+3. Closing: ${closingStyle}
 
 OUTPUT FORMAT (JSON):
 {
@@ -187,9 +225,9 @@ ${(reportB.concerns as any[]).map((c, i) => `${i + 1}. [${c.timestamp || '無'}]
 9. 使用台灣口語中文，不是中國用語
 
 結構：
-1. 開場：簡短提到剛一起看完這部片
+1. 開場：${openingStyle}。由 ${firstSpeaker} 先開口。
 2. 主體：自然地討論亮點和疑慮，在兩位評論者間交織
-3. 結尾：簡短總結整體印象
+3. 結尾：${closingStyle}
 
 輸出格式（JSON）：
 {
@@ -326,9 +364,12 @@ async function textToDialogue(
     script.participants.map(p => [p.personaId, p.voiceId])
   );
 
+  const modelId = getDialogueModelId(script.language);
+  const useAudioTags = modelId === 'eleven_v3';
+
   const dialogueInputs = script.turns.map(turn => {
     let text = turn.text;
-    if (turn.audioTag) {
+    if (useAudioTags && turn.audioTag) {
       text = `[${turn.audioTag}] ${text}`;
     }
     return {
@@ -337,8 +378,7 @@ async function textToDialogue(
     };
   });
 
-  const modelId = getDialogueModelId(script.language);
-  console.log(`[Dialogue] Generating audio with ${dialogueInputs.length} turns, model: ${modelId}`);
+  console.log(`[Dialogue] Generating audio with ${dialogueInputs.length} turns, model: ${modelId}, audioTags: ${useAudioTags}`);
 
   const response = await fetch(`${ELEVENLABS_API_URL}/text-to-dialogue`, {
     method: 'POST',
@@ -348,9 +388,8 @@ async function textToDialogue(
       'xi-api-key': apiKey
     },
     body: JSON.stringify({
-      dialogue: dialogueInputs,
-      model_id: modelId,
-      output_format: 'mp3_44100_128'
+      inputs: dialogueInputs,
+      model_id: modelId
     })
   });
 

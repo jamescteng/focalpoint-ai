@@ -42,6 +42,35 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     }
   }, [audioUrl]);
 
+  useEffect(() => {
+    setState('idle');
+    setAudioUrl(null);
+    setTranscript('');
+    setIsPlaying(false);
+    setError(null);
+    setShowTranscript(false);
+    setLanguageSupported(true);
+    
+    const checkExistingVoiceScript = async () => {
+      try {
+        const response = await fetch(`/api/sessions/${sessionId}/reports/${personaId}/voice-script`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.audioUrl) {
+            const servedUrl = data.audioUrl.replace('/objects/', '/api/voice-audio/');
+            setAudioUrl(servedUrl);
+            setTranscript(data.transcript || '');
+            setState('ready');
+          }
+        }
+      } catch (err) {
+        console.warn('[VoicePlayer] Failed to check existing voice script:', err);
+      }
+    };
+    
+    checkExistingVoiceScript();
+  }, [sessionId, personaId]);
+
   const safeParseJson = async (response: Response): Promise<any> => {
     const text = await response.text();
     try {
