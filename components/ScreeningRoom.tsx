@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project, AgentReport, Persona, VideoFingerprint } from '../types';
 import { PERSONAS } from '../constants.tsx';
 import { Button } from './Button';
@@ -119,14 +119,43 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const [showAddPersona, setShowAddPersona] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<'profile' | 'goals'>('profile');
   const [fingerprintWarning, setFingerprintWarning] = useState<{ file: File; issues: string[] } | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
+  const [pendingSeek, setPendingSeek] = useState<number | null>(null);
   
   const activeReport = reports[activeReportIndex];
   const activePersona = PERSONAS.find(p => p.id === activeReport?.personaId) || PERSONAS[0];
 
+  useEffect(() => {
+    setVideoReady(false);
+    setPendingSeek(null);
+  }, [project.videoUrl]);
+
+  const handleVideoReady = () => {
+    setVideoReady(true);
+    if (pendingSeek !== null && videoRef.current) {
+      videoRef.current.currentTime = pendingSeek;
+      videoRef.current.play().catch(() => {});
+      setPendingSeek(null);
+    }
+  };
+
+  const handleVideoLoadStart = () => {
+    setVideoReady(false);
+  };
+
   const seekTo = (seconds: number) => {
-    if (videoRef.current) {
+    if (!project.videoUrl) {
+      return;
+    }
+    if (!videoRef.current || !videoReady) {
+      setPendingSeek(seconds);
+      return;
+    }
+    try {
       videoRef.current.currentTime = seconds;
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
+    } catch (err) {
+      console.warn('[FocalPoint] Seek failed:', err);
     }
   };
 
@@ -292,7 +321,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
             />
             
             {project.videoUrl ? (
-              <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card">
+              <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card relative">
                 <video 
                   ref={videoRef}
                   src={project.videoUrl} 
@@ -300,7 +329,23 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                   playsInline
                   preload="auto"
                   className="w-full h-full"
+                  onLoadStart={handleVideoLoadStart}
+                  onCanPlay={handleVideoReady}
+                  onLoadedMetadata={handleVideoReady}
                 />
+                {!videoReady && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="text-white/80 text-sm font-medium">Loading video...</span>
+                    </div>
+                  </div>
+                )}
+                {pendingSeek !== null && videoReady && (
+                  <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-lg text-sm">
+                    Seeking to {Math.floor(pendingSeek / 60)}:{String(Math.floor(pendingSeek % 60)).padStart(2, '0')}...
+                  </div>
+                )}
               </div>
             ) : (
               <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden shadow-card border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-8">
