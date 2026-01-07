@@ -166,51 +166,74 @@ async function naturalizeScript(
 ): Promise<VoiceReportScript> {
   const isEnglish = language === 'en';
   
-  const systemPrompt = isEnglish
-    ? `You are ${persona.name}, a ${persona.role}. You are recording a brief voice memo about a film you just watched.
-       
-Your task: Rewrite the provided script lines to sound more natural and conversational, as if you're actually speaking.
+  const systemPrompt = `You are a professional editor for spoken voice notes and film review podcasts.
 
-CRITICAL RULES:
-- Keep the SAME language (English)
-- Keep EXACT same structure: same number of sections, same number of lines per section
-- Do NOT add new timestamps or film events not in the original
-- Do NOT remove any content - you must cover everything
-- Each line must be MAX 2 sentences
-- Preserve the persona's professional but warm tone
-- Make it sound like natural speech, not a list being read aloud
-- Vary sentence openings - don't start every line the same way`
-    : `你是${persona.name}，一位${persona.role}。你正在錄製一段關於剛看完的影片的簡短語音備忘錄。
+Your task is to rewrite a structured reviewer transcript into a natural, conversational, first-person spoken reflection, as if the reviewer is thinking out loud shortly after watching the film.
 
-你的任務：將提供的腳本行改寫得更自然、更口語化，就像你真的在說話一樣。
+This is NOT an essay and NOT a report reading.
+It should sound like a human voice memo.`;
 
-重要規則：
-- 保持相同語言（繁體中文）
-- 保持完全相同的結構：相同數量的段落，每個段落相同數量的行
-- 不要添加原文中沒有的新時間戳或影片事件
-- 不要刪除任何內容——必須涵蓋所有內容
-- 每行最多2句話
-- 保持角色專業但溫暖的語調
-- 讓它聽起來像自然的語音，而不是朗讀列表
-- 變化句子開頭——不要每行都用相同的方式開始`;
+  const userPrompt = isEnglish
+    ? `You are given a JSON object representing a reviewer voice script with sections and short draft lines.
 
-  const userPrompt = `Here is the draft script to naturalize. Return ONLY a JSON object with the same structure, but with rewritten "text" fields for each line.
+Rewrite ONLY the "text" fields inside "sections[].lines[]" so the result sounds like natural speech.
 
-Draft script:
-${JSON.stringify(draftScript.sections, null, 2)}
+Speech style requirements:
+- First-person throughout.
+- Reflective, fluid, and conversational.
+- Use natural transitions ("One thing that stayed with me…", "That said…", "What I kept thinking about was…", "If I'm being honest…").
+- Occasionally acknowledge uncertainty or subjectivity ("for me", "personally", "at this point").
+- Avoid list-reading or enumeration.
+- Avoid phrases like "highlight", "concern", "issue number".
+- Each line max 2 sentences.
 
-Return format:
-{
-  "sections": [
-    {
-      "sectionId": "OPEN",
-      "lines": [
-        { "text": "naturalized text here", "refs": [...] }
-      ]
-    },
-    ...
-  ]
-}`;
+Tone:
+- Match the reviewer persona's tone (${persona.name} is a ${persona.role} - ${persona.role.includes('Director') || persona.role.includes('director') ? 'direct memo style' : 'warm and thoughtful'}).
+- Sound like someone speaking to a filmmaker they respect.
+
+Hard constraints:
+- Keep the same language as the input (English).
+- Do NOT change JSON structure.
+- Do NOT modify or remove "refs".
+- Do NOT add new timestamps or events.
+- Do NOT invent new observations.
+- Do NOT add audio tags in this step.
+
+Target length:
+- ~650–850 English words total.
+
+Here is the input JSON. Return the rewritten JSON only:
+${JSON.stringify(draftScript.sections, null, 2)}`
+    : `你收到一個 JSON 物件，代表一個包含段落和簡短草稿行的評論者語音腳本。
+
+只改寫 "sections[].lines[]" 內的 "text" 欄位，使結果聽起來像自然的語音。
+
+語音風格要求：
+- 全程使用第一人稱。
+- 反思性、流暢且口語化。
+- 使用自然的過渡（「有一點讓我印象深刻的是…」、「話雖如此…」、「我一直在想的是…」、「說實話…」）。
+- 偶爾承認不確定性或主觀性（「對我來說」、「個人認為」、「就目前而言」）。
+- 避免像在朗讀清單。
+- 避免「亮點」、「問題」、「第幾點」等詞語。
+- 每行最多2句話。
+
+語調：
+- 匹配評論者角色的語調（${persona.name}是${persona.role}）。
+- 聽起來像是在對一位他們尊重的電影製作人說話。
+
+嚴格限制：
+- 保持與輸入相同的語言（繁體中文）。
+- 不要改變 JSON 結構。
+- 不要修改或刪除 "refs"。
+- 不要添加新的時間戳或事件。
+- 不要發明新的觀察。
+- 不要在這一步添加音頻標籤。
+
+目標長度：
+- 總共約 900-1400 個繁體中文字。
+
+以下是輸入 JSON。只返回改寫後的 JSON：
+${JSON.stringify(draftScript.sections, null, 2)}`;
 
   try {
     const response = await ai.models.generateContent({
@@ -304,6 +327,40 @@ function recomputeCoverage(script: VoiceReportScript, originalCoverage: VoiceRep
   script.coverage.timestampsUsed = [...originalCoverage.timestampsUsed];
 }
 
+const SECTION_AUDIO_TAGS: Record<string, string> = {
+  'OPEN': '[thoughtfully]',
+  'HIGHLIGHTS': '[warmly]',
+  'CONCERNS': '[carefully]',
+  'OBJECTIVES': '[reflective]',
+  'CLOSE': '[encouraging]'
+};
+
+function injectAudioTags(script: VoiceReportScript): VoiceReportScript {
+  const taggedSections = script.sections.map(section => {
+    const sectionTag = SECTION_AUDIO_TAGS[section.sectionId] || '';
+    
+    const taggedLines = section.lines.map((line, lineIndex) => {
+      if (lineIndex === 0 && sectionTag) {
+        return {
+          ...line,
+          text: `${sectionTag} ${line.text}`
+        };
+      }
+      return line;
+    });
+
+    return {
+      ...section,
+      lines: taggedLines
+    };
+  });
+
+  return {
+    ...script,
+    sections: taggedSections
+  };
+}
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -368,8 +425,10 @@ export async function generateVoiceScript(
 ): Promise<{ script: VoiceReportScript; validation: ValidationResult; hash: string }> {
   const hash = generateReportHash(report);
   
+  console.log('[VoiceScript] Pass A: Building deterministic script...');
   const draftScript = buildDeterministicScript(persona, report, language);
   
+  console.log('[VoiceScript] Pass B: Naturalizing script...');
   const naturalizedScript = await naturalizeScript(draftScript, persona, language);
   
   const validation = validateScript(naturalizedScript, report);
@@ -377,10 +436,14 @@ export async function generateVoiceScript(
   if (!validation.valid) {
     console.warn('[VoiceScript] Validation errors, falling back to draft:', validation.errors);
     const draftValidation = validateScript(draftScript, report);
-    return { script: draftScript, validation: draftValidation, hash };
+    const taggedDraft = injectAudioTags(draftScript);
+    return { script: taggedDraft, validation: draftValidation, hash };
   }
   
-  return { script: naturalizedScript, validation, hash };
+  console.log('[VoiceScript] Pass C: Injecting audio tags...');
+  const taggedScript = injectAudioTags(naturalizedScript);
+  
+  return { script: taggedScript, validation, hash };
 }
 
 export function getFullTranscript(script: VoiceReportScript): string {
