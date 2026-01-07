@@ -111,7 +111,7 @@ COMPONENT DETAILS:
 │ • Persona-based prompts   │       │   - questions, language   │
 │ • Structured JSON output  │       │   - file fingerprint      │
 │                           │       │                           │
-│ Model: gemini-3-flash-    │       │ • reports table           │
+│ Model: gemini-3-pro-      │       │ • reports table           │
 │        preview            │       │   - persona_id            │
 └───────────────────────────┘       │   - summary, highlights   │
                                     │   - concerns, answers     │
@@ -322,7 +322,7 @@ reports
 | Styling | Tailwind CSS (CDN) |
 | Backend | Express, TypeScript, Node.js |
 | Database | PostgreSQL + Drizzle ORM |
-| AI | Google Gemini (gemini-3-flash-preview) |
+| AI | Google Gemini (gemini-3-pro-preview) |
 | Testing | Vitest (frontend), Jest (backend) |
 
 ---

@@ -1250,7 +1250,7 @@ async function analyzeWithPersona(
     fileMimeType: string;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[] }> {
-  const modelName = "gemini-3-flash-preview";
+  const modelName = "gemini-3-pro-preview";
   
   try {
     const systemInstruction = persona.systemInstruction(params.langName);

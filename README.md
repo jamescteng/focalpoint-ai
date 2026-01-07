@@ -26,7 +26,7 @@ Get focus group-style feedback through configurable AI personas, each offering a
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS
 - **Backend**: Express.js with Busboy streaming
-- **AI**: Google Gemini API (`gemini-3-flash-preview`)
+- **AI**: Google Gemini API (`gemini-3-pro-preview`)
 
 ## Quick Start
 

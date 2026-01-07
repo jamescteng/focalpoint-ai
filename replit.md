@@ -22,7 +22,7 @@ FocalPoint AI is a React + TypeScript + Vite application that provides advanced 
 - PostgreSQL + Drizzle ORM (session and report persistence)
 - Tailwind CSS (via CDN)
 - Inter + Noto Sans TC font stack (better CJK support)
-- Google Gemini AI (@google/genai) - using gemini-3-flash-preview model
+- Google Gemini AI (@google/genai) - using gemini-3-pro-preview model
 
 ## Architecture
 - Frontend runs on port 5000 (Vite dev server)
