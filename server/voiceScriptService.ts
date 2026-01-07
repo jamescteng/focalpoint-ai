@@ -170,12 +170,21 @@ async function naturalizeScript(
 ): Promise<VoiceReportScript> {
   const isEnglish = language === 'en';
   
-  const systemPrompt = `You are rewriting professional film notes into a spoken, first-person voice memo.
+  const systemPrompt = isEnglish
+    ? `You are rewriting professional film notes into a spoken, first-person voice memo.
 
 This must sound like a real human thinking out loud after a screening.
 Not a report. Not a lecture. Not written notes read aloud.
 
-Imagine the reviewer is alone, recording a private voice memo to themselves.`;
+Imagine the reviewer is alone, recording a private voice memo to themselves.`
+    : `你是一位專門編修「口語影評語音筆記」的編輯。
+
+你的任務是把結構化、偏書面或報告式的影評內容，
+改寫成「台灣口語中文」的第一人稱語音反思，
+聽起來像是真人剛看完電影後，對自己或對創作者說的心裡話。
+
+這不是論文、不是報告朗讀，也不是正式簡報。
+而是一段自然、思考中的口語回顧。`;
 
   const userPrompt = isEnglish
     ? `Rewrite ONLY the "text" fields inside "sections[].lines[]" to sound like natural spoken reflection.
@@ -208,35 +217,62 @@ Hard constraints:
 
 Here is the input JSON. Return rewritten JSON only:
 ${JSON.stringify(draftScript.sections, null, 2)}`
-    : `只改寫 "sections[].lines[]" 內的 "text" 欄位，使結果聽起來像自然的口語反思。
+    : `以下是一個 JSON 物件，代表一位影評者的語音腳本草稿。
+目前的文字仍偏書面、偏報告感。
 
-強制規則：
-- 不要以時間戳開頭（例如「在 02:13」、「大約在 12:55」）。
-- 如果提到時間戳，必須出現在句子後面，或在開頭子句之後。
-- 不要使用報告動詞如「建立」、「展示」、「削弱」、「降低可信度」。
-- 用體驗性語言替代（「這對我的感受是…」、「這是我感覺到…」、「開始有一種感覺…」）。
+請只改寫 sections[].lines[].text 這些欄位，
+讓整體聽起來像是「台灣人用中文講話」的自然語音反思。
 
-語音要求：
-- 第一人稱、反思性、略帶不完美。
-- 包含後設認知：注意、回憶、反應。
-- 變化句子開頭（「有一點讓我印象深刻…」、「讓我意外的是…」、「到了那個時候…」）。
-- 允許輕度主觀性（「對我來說」、「個人認為」、「我一直有種感覺…」）。
-- 每行最多2句話。
+【強制規則（非常重要）】
 
-語調：
-- 依然專業。
-- 依然有見地。
-- 但是口語的，不是書面的。
-- 聽起來像是在對一位他們尊重的電影製作人說話。
+1. 不可以用時間戳開頭一句話
+   ❌「在 02:13，Mary 開始⋯⋯」
+   ✅「有一段我特別記得，大概在 02:13 左右⋯⋯」
 
-嚴格限制：
-- 保持與輸入相同的語言（繁體中文）。
-- 不要改變 JSON 結構。
-- 不要修改或刪除 refs。
-- 不要添加新的事件或時間戳。
-- 不要將多個亮點合併為一個。
+2. 不要使用書面或評論腔動詞，例如：
+   ❌「建立了」、「展現了」、「削弱了可信度」、「加強了敘事張力」
+   請改成觀看經驗語言，例如：
+   ✅「我那時候真的感覺到⋯⋯」
+   ✅「這一段讓我比較有感覺的是⋯⋯」
+   ✅「我開始有點出戲的是⋯⋯」
 
-以下是輸入 JSON。只返回改寫後的 JSON：
+3. 必須是第一人稱，並且帶有思考感
+   請多用：
+   「我覺得」、「我當下的感覺是」、「我一直在想」、「對我來說」
+
+4. 每一行最多兩句話
+   但語氣可以自然、有停頓感，不需要對稱或工整。
+
+5. 嚴禁列點、編號、或像在唸清單
+   不可以出現「第一個／第二個／再來」這種結構。
+
+【語氣與風格】
+
+- 使用台灣常見的口語中文（不是中國用語、不是書面文）
+- 專業，但不正式
+- 像是私下錄音，不像對外發表
+- 可以出現輕微猶豫、回想、轉折
+
+【時間戳使用方式】
+
+- 時間戳只能自然地嵌在句子中
+- 可以用「差不多在⋯⋯左右」、「那一段大概在⋯⋯」
+- 不要頻繁重複，每一段不一定都要有
+
+【硬性限制】
+
+- 必須維持原本的 JSON 結構
+- 不可以新增、刪除或修改 refs
+- 不可以新增新的劇情、事件或時間
+- 不可以改變 sections、欄位名稱或順序
+- 只回傳 JSON，不要有任何額外說明文字
+
+【長度目標】
+
+- 全文約 900–1400 個繁體中文字
+- 聽起來約 3–4 分鐘語音
+
+以下是輸入 JSON，請只回傳改寫後的 JSON：
 ${JSON.stringify(draftScript.sections, null, 2)}`;
 
   try {
@@ -418,8 +454,46 @@ export function getFullTranscript(script: VoiceReportScript): string {
     .join('\n\n');
 }
 
+const SECTION_AUDIO_TAGS: Record<string, { en: string; 'zh-TW': string }> = {
+  'OPEN': { en: '[reflective]', 'zh-TW': '[思考中]' },
+  'HIGHLIGHTS': { en: '[warmly]', 'zh-TW': '[溫和地]' },
+  'CONCERNS': { en: '[thoughtfully]', 'zh-TW': '[認真地]' },
+  'OBJECTIVES': { en: '[matter-of-fact]', 'zh-TW': '[平實地]' },
+  'CLOSE': { en: '[encouraging]', 'zh-TW': '[鼓勵地]' }
+};
+
+function injectAudioTags(script: VoiceReportScript): VoiceReportScript {
+  const language = script.language;
+  
+  const taggedSections = script.sections.map(section => {
+    const tagMapping = SECTION_AUDIO_TAGS[section.sectionId];
+    const sectionTag = tagMapping ? tagMapping[language] : '';
+    
+    const taggedLines = section.lines.map((line, lineIndex) => {
+      if (lineIndex === 0 && sectionTag) {
+        return {
+          ...line,
+          text: `${sectionTag} ${line.text}`
+        };
+      }
+      return line;
+    });
+
+    return {
+      ...section,
+      lines: taggedLines
+    };
+  });
+
+  return {
+    ...script,
+    sections: taggedSections
+  };
+}
+
 export function getAudioText(script: VoiceReportScript): string {
-  return script.sections
+  const taggedScript = injectAudioTags(script);
+  return taggedScript.sections
     .flatMap(section => section.lines.map(line => line.text))
     .join(' ');
 }

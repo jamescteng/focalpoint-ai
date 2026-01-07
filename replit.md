@@ -1,305 +1,72 @@
 # FocalPoint AI
 
 ## Overview
-FocalPoint AI is a React + TypeScript + Vite application that provides advanced multimodal focus groups for professional indie creators. It uses Google's Gemini AI to analyze video content through multiple configurable personas, each offering a distinct professional perspective.
+FocalPoint AI is a React + TypeScript + Vite application designed for professional indie creators. It offers advanced multimodal focus groups by leveraging Google's Gemini AI to analyze video content. The platform employs multiple configurable AI personas, each providing a distinct professional perspective on the video analysis. The core purpose is to provide creators with comprehensive feedback through AI-generated reports and innovative voice notes, enhancing their content creation process.
 
-## Project Structure
-- `/App.tsx` - Main application component
-- `/index.tsx` - React entry point  
-- `/index.html` - HTML template
-- `/components/` - React components (Button, UploadForm, ProcessingQueue, ScreeningRoom)
-- `/geminiService.ts` - Frontend service that calls the backend API
-- `/server/index.ts` - Express backend server with Gemini API integration
-- `/server/personas.ts` - Persona registry with full prompt configurations
-- `/types.ts` - TypeScript type definitions
-- `/constants.tsx` - Application constants and frontend persona data
+## User Preferences
+Not specified.
 
-## Tech Stack
-- React 19
-- TypeScript
-- Vite 6 (build tool, dev server on port 5000)
-- Express (backend API on port 3001)
-- PostgreSQL + Drizzle ORM (session and report persistence)
-- Tailwind CSS (via CDN)
-- Inter + Noto Sans TC font stack (better CJK support)
-- Google Gemini AI (@google/genai) - using gemini-3-pro-preview model
+## System Architecture
+FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communicating with an Express backend. The application is designed for asynchronous video processing, robust error handling, and a modular multi-persona analysis system.
 
-## Architecture
-- Frontend runs on port 5000 (Vite dev server)
-- Backend runs on port 3001 (Express server), binds to 0.0.0.0
-- Vite proxies `/api` requests to the backend
-- API key is securely stored as GEMINI_API_KEY secret (never exposed to frontend)
-- express.json() middleware bypassed for /api/upload route to prevent memory buffering
+### UI/UX Decisions
+- **Technology**: React, TypeScript, Tailwind CSS (via CDN) for styling.
+- **Typography**: Inter + Noto Sans TC font stack for broad language support, especially CJK.
+- **Design Approach**: Focus on a responsive and intuitive interface for video uploads, persona selection, and report viewing.
 
-### Video Upload Flow (Async with Background Processing)
-The upload uses a job-based async architecture for responsive UI:
+### Technical Implementations
+- **Frontend**: Vite dev server on port 5000.
+- **Backend**: Express server on port 3001, binding to 0.0.0.0.
+- **API Proxy**: Vite proxies `/api` requests to the Express backend.
+- **Security**: Gemini API key stored as a secret (`GEMINI_API_KEY`) and never exposed to the frontend.
+- **Video Upload**:
+    - Asynchronous, job-based architecture with immediate response upon file reception.
+    - Busboy for streaming multipart parsing.
+    - Temporary spool files for incoming video streams.
+    - Background processing for uploading to Gemini in 16MB chunks (resumable upload).
+    - Frontend polls for real-time status updates.
+    - In-memory job store with TTL for tracking upload status.
+    - Upload idempotency using `X-Upload-Attempt-Id` header to prevent re-uploads.
+    - Stale job recovery mechanism for abandoned uploads.
+    - Automatic retry logic (up to 3 times) for connection errors during upload.
+    - Maximum video size: 2GB.
+- **Persona System**:
+    - **"House Style + Persona Edge" pattern**: Shared `HOUSE_STYLE_GUIDELINES`, `OUTPUT_CONSTRAINTS_REMINDER`, and `SUMMARY_READABILITY_GUIDELINES` ensure consistent tone and formatting across all persona analyses, while `RAW_PERSONA_CONFIGS` define unique aspects.
+    - Each persona has a unique system instruction, user prompt template, highlight categories, concern categories, and minimum high-severity concern thresholds.
+    - Individual persona failures are isolated to prevent blocking other results.
+    - Available personas include `acquisitions_director`, `cultural_editor`, `mass_audience_viewer`, and `social_impact_viewer`.
+- **Analysis Polling**:
+    - Exponential backoff strategy (1s initial, 1.5x factor, 10s max delay) with ±20% jitter.
+    - Hard timeout of 10 minutes for analysis.
+- **Report Structure**: Each persona report includes an executive summary, 5 highlights with timestamps, 5 concerns with severity and suggested fixes, and answers to user-defined research objectives. Server-side validation ensures report integrity.
+- **Reviewer Voice Notes**:
+    - **Three-Pass Pipeline**:
+        - **Pass A (Deterministic Coverage)**: Generates a structured draft ensuring coverage of all highlights and concerns.
+        - **Pass B (Conversational Naturalization)**: Uses LLM to rewrite draft into natural, speech-native text, adhering to specific linguistic rules for English and zh-TW.
+        - **Audio Generation**: Utilizes ElevenLabs v3 with audio tags for emotional direction.
+    - Supports both English and zh-TW with specific rules for naturalization.
 
-**Phase 1: File Reception (immediate response)**
-1. Frontend uploads video file to `/api/upload` endpoint
-2. Backend uses Busboy for streaming multipart parsing
-3. Incoming stream is written to a temp spool file with backpressure handling
-4. Backend returns immediately with `{ jobId, status: 'RECEIVED' }`
+### Feature Specifications
+- **Multi-Persona Analysis**: Users can select one persona initially and add more later without re-uploading the video, leveraging cached `fileUri`.
+- **Real-time Progress**: Upload and analysis progress displayed in real-time.
+- **Session Management**: PostgreSQL + Drizzle ORM for persisting sessions and reports. This includes creating, listing, retrieving, updating, and deleting sessions and associated reports.
+- **Voice Script Generation**: Generate and cache voice scripts for reports, with optional audio generation via ElevenLabs.
 
-**Phase 2: Background Processing**
-5. Backend uploads spool file to Gemini in 16MB chunks (resumable upload protocol)
-6. Backend polls Gemini with exponential backoff (1s → 10s cap, ±20% jitter, 10 min timeout)
-7. Job status updated: SPOOLING → UPLOADING → PROCESSING → ACTIVE
+### System Design Choices
+- **Database**: PostgreSQL with Drizzle ORM for data persistence.
+    - `sessions` table: Stores video metadata, user questions, and language.
+    - `reports` table: Stores detailed analysis reports for each persona.
+    - `voice_scripts` table: Caches generated voice scripts and audio URLs.
+- **Security**:
+    - `express-rate-limit` for API endpoints (e.g., upload, status, analyze).
+    - CORS restrictions tailored for production (`*.repl.co`, `*.replit.dev`, `*.replit.app`) and development (`localhost:5000`).
+    - Robust input validation for all API endpoints.
+    - File upload validation for MIME types and size.
+    - Generic error messages for clients, detailed logging server-side.
 
-**Phase 3: Frontend Polling**
-8. Frontend polls `GET /api/upload/status/:jobId` every 1.5s
-9. Progress updates shown to user in real-time
-10. Once ACTIVE, frontend receives fileUri and proceeds to analysis
-
-**Job Store**
-- In-memory Map stores job status (TTL: 1 hour)
-- Status: RECEIVED | SPOOLING | UPLOADING | PROCESSING | ACTIVE | ERROR
-- Progress: 0-100 percentage
-
-**Upload Idempotency**
-- Client generates attemptId (`attempt_<timestamp>_<random>`) on form submit
-- Server requires X-Upload-Attempt-Id header on /api/upload
-- Duplicate attemptIds return existing job (no re-upload)
-- Client-side ref lock (uploadLockRef) prevents double submissions
-- Button disabled during upload with "Uploading... do not refresh" message
-
-**Stale Job Recovery**
-- Jobs track `lastByteAt` and `bytesReceived` on every data chunk
-- Jobs with no data for 30+ seconds while SPOOLING/UPLOADING are considered stale
-- Stale jobs are marked ABANDONED and cleared from attemptId mapping
-- Retry with same attemptId will create fresh upload after stale job recovery
-- Connection abort/close handlers immediately mark jobs as ABANDONED
-
-**Upload Retry & UX**
-- Automatic retry up to 3 times on connection errors
-- Shows "Connection interrupted. Resuming upload..." instead of raw errors
-- Same attemptId preserved across retries for seamless recovery
-- Status messages update in real-time during upload process
-- Development mode bypasses Vite proxy for uploads (direct to :3001)
-
-**Limits & Validation**
-- Maximum video size: 2GB (enforced on frontend and backend)
-- X-Upload-Attempt-Id header required (format: attempt_<timestamp>_<random>, 15-50 chars)
-- Invalid MIME type or oversized files return 400
-- Disk/upload errors return 500
-
-### On-Demand Persona Flow
-The app uses an on-demand approach for cost efficiency:
-1. User selects ONE persona initially and starts analysis
-2. Video is uploaded once, fileUri is cached in App state
-3. User views the first report
-4. User can click "Add Reviewer" to analyze with additional personas
-5. Additional analyses reuse the cached fileUri (no re-upload)
-6. All generated reports are cached - switching between them is instant
-7. State is reset when user starts a completely new screening
-
-### Multi-Persona Architecture
-- Persona configurations stored in `/server/personas.ts`
-- **House Style + Persona Edge pattern:**
-  - `HOUSE_STYLE_GUIDELINES` - Shared tone rules prepended to all personas' systemInstruction
-  - `OUTPUT_CONSTRAINTS_REMINDER` - Shared reminder appended to all personas' userPrompt
-  - `SUMMARY_READABILITY_GUIDELINES` - Shared formatting rules injected into summary section only (short paragraphs, sentence limits, screen-readable rhythm)
-  - `withHouseStyle` wrapper - Transforms RAW_PERSONA_CONFIGS into exported PERSONA_CONFIGS
-  - Ensures consistent, respectful, constructive tone while preserving each persona's unique lens
-- Each persona has unique:
-  - System instruction (identity, lens, critical stance)
-  - User prompt template
-  - Highlight categories (e.g., emotion, craft, clarity, marketability, authorship, cultural_relevance)
-  - Concern categories (e.g., pacing, clarity, character, audio, visual, tone, emotional_distance)
-  - Minimum high-severity concern threshold
-- Available personas:
-  - `acquisitions_director` - Commercial viability, pacing, marketability focus (direct memo style)
-  - `cultural_editor` - Cultural relevance, emotional resonance, authorship focus
-  - `mass_audience_viewer` - Clarity, engagement, drop-off risk focus
-  - `social_impact_viewer` - Message clarity, ethical storytelling, trust focus
-- Error isolation: individual persona failures don't block other results
-
-### API Endpoints
-- `GET /api/health` - Health check
-- `GET /api/personas` - List available personas with metadata
-- `POST /api/upload` - Start video upload, returns `{ jobId, status }`
-- `GET /api/upload/status/:jobId` - Check upload job status and get fileUri when ready
-- `POST /api/analyze` - Analyze video with selected personas
-  - Request: `{ title, synopsis, srtContent?, questions, language, fileUri, fileMimeType, personaIds }`
-  - Response: `{ results: [{ personaId, status, report?, error?, validationWarnings? }] }`
-
-### Polling Strategy
-- Initial delay: 1 second
-- Backoff factor: 1.5x per attempt
-- Maximum delay: 10 seconds (capped)
-- Jitter: ±20% randomization (500ms floor)
-- Hard timeout: 10 minutes
-
-### Analysis Response Schema
-Each persona's report includes:
-- `executive_summary`: Professional memo (300-500 words)
-- `highlights`: Array of 5 positive moments with:
-  - timestamp, seconds, summary, why_it_works, category
-- `concerns`: Array of 5 critical issues with:
-  - timestamp, seconds, issue, impact, severity (1-5), category, suggested_fix
-- `answers`: Responses to user-defined research objectives
-
-Server-side validation per persona:
-- Exactly 5 highlights and 5 concerns expected (logs warning if violated)
-- Severity clamped to 1-5 range
-- Minimum high-severity concerns enforced per persona config
-
-## Development
-- Run: `npm run dev` (starts both frontend and backend concurrently)
-- Frontend only: `vite`
-- Backend only: `npm run server`
-- Build: `npm run build`
-
-## Environment Variables
-- `GEMINI_API_KEY` - Required Gemini API key (stored as secret, used by backend only)
-
-## Deployment
-Autoscale deployment - builds frontend with Vite, serves via Express backend.
-
-## Security Features
-
-### Proxy Trust
-- `app.set('trust proxy', 1)` - Trusts first proxy (Replit load balancer) for accurate IP detection in rate limiting
-
-### Rate Limiting (express-rate-limit)
-- `/api/upload`: 3 requests/minute per attemptId (keyed by X-Upload-Attempt-Id header, not IP)
-- `/api/upload/status`: 60 requests/minute per IP (high limit for polling)
-- `/api/analyze`: 5 requests/minute per IP  
-- `/api/health`, `/api/personas`, other routes: 20 requests/minute per IP
-
-### CORS Restrictions
-- Production: Only allows *.repl.co, *.replit.dev, *.replit.app origins
-- Development: Allows localhost:5000
-
-### Input Validation (/api/analyze)
-- Title: required, max 200 characters
-- Synopsis: max 5000 characters
-- SRT content: max 500KB
-- Questions: max 10, each max 500 characters
-- Language: must be 'en' or 'zh-TW'
-- fileUri: must start with 'https://generativelanguage.googleapis.com/'
-- personaIds: validated against persona registry whitelist
-
-### File Upload Validation
-- MIME type must be video/* or in allowed list
-- Maximum size: 2GB
-
-### Error Sanitization
-- Generic error messages returned to clients
-- Full error details logged server-side only
-
-## Database Schema
-
-### sessions table
-- `id` (serial, primary key)
-- `title` (text, required)
-- `synopsis` (text, required)
-- `questions` (jsonb, array of strings)
-- `language` (varchar, 'en' or 'zh-TW')
-- `file_uri` (text, nullable - Gemini file URI)
-- `file_mime_type` (text, nullable)
-- `file_name` (text, nullable)
-- `persona_aliases` (jsonb, nullable) - Session-specific persona display names
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
-
-### reports table
-- `id` (serial, primary key)
-- `session_id` (references sessions.id, cascade delete)
-- `persona_id` (varchar)
-- `executive_summary` (text)
-- `highlights` (jsonb, array)
-- `concerns` (jsonb, array)
-- `answers` (jsonb, array)
-- `validation_warnings` (jsonb, array)
-- `created_at` (timestamp)
-
-### Session API Endpoints
-- `POST /api/sessions` - Create a new session
-- `GET /api/sessions` - List all sessions (ordered by date)
-- `GET /api/sessions/:id` - Get session by ID
-- `PUT /api/sessions/:id` - Update session (e.g., add file URI after upload)
-- `DELETE /api/sessions/:id` - Delete session and all reports
-- `GET /api/sessions/:id/reports` - Get all reports for a session
-- `POST /api/sessions/:id/reports` - Save a report to a session
-
-### voice_scripts table
-- `id` (serial, primary key)
-- `session_id` (references sessions.id, cascade delete)
-- `persona_id` (varchar)
-- `report_hash` (varchar, 64 chars) - SHA256 hash for cache invalidation
-- `language` (varchar, 'en' or 'zh-TW')
-- `script_json` (jsonb) - Full VoiceReportScript structure
-- `audio_url` (text, nullable) - Object Storage path for generated audio
-- `created_at` (timestamp)
-
-### Voice Script API Endpoints
-- `GET /api/sessions/:sessionId/reports/:personaId/voice-script` - Get cached voice script
-- `POST /api/sessions/:sessionId/reports/:personaId/voice-script` - Generate voice script
-- `POST /api/sessions/:sessionId/reports/:personaId/voice-audio` - Generate audio via ElevenLabs
-- `GET /api/voice-audio/*` - Stream audio files from Object Storage (proxies /objects/ paths)
-
-## Reviewer Voice Notes Feature
-
-Converts a reviewer's report into a natural, spoken-style voice note with optional audio.
-
-### Three-Pass Pipeline Architecture
-
-**Pass A: Deterministic Coverage** (`buildDeterministicScript`)
-- Generates structured draft from report data
-- Ensures coverage of all 5 highlights and 5 concerns
-- Sections: OPEN, HIGHLIGHTS, CONCERNS, OBJECTIVES (if answers exist), CLOSE
-- No conversational polish yet
-
-**Pass B: Conversational Naturalization** (LLM via Gemini)
-- Rewrites draft lines into speech-native text
-- Uses professional editor persona (not reviewer)
-- Produces reflective, fluid, first-person speech
-- Mandatory rules:
-  - Timestamps must NOT start sentences (embed mid-sentence)
-  - No report verbs (establishes, demonstrates, undermines)
-  - Experiential language instead (what this did for me, this is where I felt)
-  - Metacognition framing (noticing, remembering, reacting)
-- Target: 650-850 EN words / 900-1400 zh-TW characters
-- Falls back to deterministic script on error
-
-**Audio Generation**
-- No audio tags injected - ElevenLabs reads bracketed text as literal words
-- Natural delivery achieved through voice settings (stability=0.45, style=0.0)
-- `getFullTranscript()` returns clean text for UI display
-- `getAudioText()` returns same clean text for ElevenLabs TTS
-
-### Validation
-- Coverage check (all highlights/concerns)
-- Word count for runtime estimation
-- Timestamp verification (no invented timestamps)
-
-### ElevenLabs Audio Generation (`server/elevenLabsService.ts`)
-- Text-to-speech via ElevenLabs API
-- Model: `eleven_multilingual_v2`
-- Tuned settings: stability=0.45, similarity_boost=0.75, style=0.0
-- Language-aware voice selection (English supported, zh-TW transcript-only)
-- Audio stored in Replit Object Storage
-
-### VoiceReportScript Schema
-```typescript
-{
-  version: "1.0",
-  language: "en" | "zh-TW",
-  persona: { personaId, name, role },
-  runtimeTargetSeconds: 180-240,
-  sections: [
-    {
-      sectionId: "OPEN" | "HIGHLIGHTS" | "CONCERNS" | "OBJECTIVES" | "CLOSE",
-      lines: [{ text: string, refs?: [...] }]
-    }
-  ],
-  coverage: { highlights: boolean[], concerns: boolean[], ... }
-}
-```
-
-### Frontend Components
-- `VoicePlayer.tsx` - Play/pause controls, transcript toggle, loading states
-- Integrated into ScreeningRoom persona profile section
-
-### Environment Variables
-- `ELEVENLABS_API_KEY` - Required for audio generation (stored as secret)
+## External Dependencies
+- **Google Gemini AI**: Used for video analysis, specifically the `gemini-3-pro-preview` model.
+- **PostgreSQL**: Relational database for session and report persistence.
+- **Drizzle ORM**: TypeScript ORM for interacting with PostgreSQL.
+- **ElevenLabs**: Third-party API for text-to-speech audio generation using `eleven_v3` model.
+- **Replit Object Storage**: Used for storing generated audio files.

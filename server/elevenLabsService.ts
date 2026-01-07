@@ -4,22 +4,22 @@ import { getAudioText } from './voiceScriptService';
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
 
-const VOICE_MAPPINGS: Record<string, { en: string; 'zh-TW': string | null }> = {
+const VOICE_MAPPINGS: Record<string, { en: string; 'zh-TW': string }> = {
   acquisitions_director: {
     en: 'EXAVITQu4vr4xnSDxMaL',
-    'zh-TW': null
+    'zh-TW': 'EXAVITQu4vr4xnSDxMaL'
   },
   cultural_editor: {
     en: 'pFZP5JQG7iQjIQuC4Bku',
-    'zh-TW': null
+    'zh-TW': 'pFZP5JQG7iQjIQuC4Bku'
   },
   mass_audience_viewer: {
     en: 'TX3LPaxmHKxFdv7VOQHJ',
-    'zh-TW': null
+    'zh-TW': 'TX3LPaxmHKxFdv7VOQHJ'
   },
   social_impact_viewer: {
     en: 'XB0fDUnXU5powFXDhCwa',
-    'zh-TW': null
+    'zh-TW': 'XB0fDUnXU5powFXDhCwa'
   }
 };
 
@@ -30,24 +30,25 @@ export interface AudioGenerationResult {
   languageSupported: boolean;
 }
 
-export function getVoiceId(personaId: string, language: 'en' | 'zh-TW'): string | null {
+export function getVoiceId(personaId: string, language: 'en' | 'zh-TW'): string {
   const mapping = VOICE_MAPPINGS[personaId];
   if (!mapping) {
-    return VOICE_MAPPINGS.acquisitions_director.en;
+    return VOICE_MAPPINGS.acquisitions_director[language];
   }
   return mapping[language];
 }
 
-export function isLanguageSupported(personaId: string, language: 'en' | 'zh-TW'): boolean {
-  const voiceId = getVoiceId(personaId, language);
-  return voiceId !== null;
+export function isLanguageSupported(_personaId: string, _language: 'en' | 'zh-TW'): boolean {
+  return true;
 }
 
-async function textToSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
+async function textToSpeech(text: string, voiceId: string, language: 'en' | 'zh-TW'): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY not configured');
   }
+
+  const stability = language === 'zh-TW' ? 0.42 : 0.5;
 
   const response = await fetch(`${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`, {
     method: 'POST',
@@ -58,12 +59,10 @@ async function textToSpeech(text: string, voiceId: string): Promise<ArrayBuffer>
     },
     body: JSON.stringify({
       text,
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'eleven_v3',
       voice_settings: {
-        stability: 0.45,
-        similarity_boost: 0.75,
-        style: 0.0,
-        use_speaker_boost: true
+        stability,
+        similarity_boost: 0.75
       }
     })
   });
@@ -85,20 +84,12 @@ export async function generateAudio(
   const language = script.language;
   const voiceId = getVoiceId(personaId, language);
 
-  if (!voiceId) {
-    return {
-      success: false,
-      error: `Voice not available for ${language}`,
-      languageSupported: false
-    };
-  }
-
   try {
     const fullText = getAudioText(script);
 
-    console.log(`[ElevenLabs] Generating audio for ${personaId}, ${fullText.length} chars`);
+    console.log(`[ElevenLabs] Generating audio for ${personaId}, ${fullText.length} chars, model: eleven_v3`);
     
-    const audioBuffer = await textToSpeech(fullText, voiceId);
+    const audioBuffer = await textToSpeech(fullText, voiceId, language);
     
     const objectStorage = new ObjectStorageService();
     const privateDir = objectStorage.getPrivateObjectDir();
