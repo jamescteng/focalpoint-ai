@@ -111,8 +111,8 @@ COMPONENT DETAILS:
 │ • Persona-based prompts   │       │   - questions, language   │
 │ • Structured JSON output  │       │   - file fingerprint      │
 │                           │       │                           │
-│ Model: gemini-3-flash     │       │ • reports table           │
-│                           │       │   - persona_id            │
+│ Model: gemini-3-flash-    │       │ • reports table           │
+│        preview            │       │   - persona_id            │
 └───────────────────────────┘       │   - summary, highlights   │
                                     │   - concerns, answers     │
                                     └───────────────────────────┘
