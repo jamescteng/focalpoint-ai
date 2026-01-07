@@ -30,10 +30,111 @@ export function generateReportHash(report: PersonaReport): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-function buildDeterministicScript(
+interface PersonalizedLines {
+  openingLines: string[];
+  closingLines: string[];
+}
+
+async function generatePersonalizedOpenClose(
   persona: PersonaMeta,
   report: PersonaReport,
   language: 'en' | 'zh-TW'
+): Promise<PersonalizedLines> {
+  const isEnglish = language === 'en';
+  
+  const systemPrompt = isEnglish
+    ? `You generate short, natural voice memo openings and closings for film reviewers.
+Each reviewer has a distinct personality and professional perspective.
+Write in first-person, spoken style - not formal or written.`
+    : `你為影評者生成簡短、自然的語音筆記開場白和結語。
+每位評論者都有獨特的個性和專業視角。
+請用第一人稱、口語風格撰寫——不要正式或書面。`;
+
+  const userPrompt = isEnglish
+    ? `Generate personalized opening and closing lines for this reviewer's voice notes.
+
+Reviewer: ${persona.name}
+Role: ${persona.role}
+Film Summary: ${report.executive_summary.slice(0, 300)}
+
+Requirements:
+- Opening: 2 lines total. First line introduces who they are in their unique voice. Second line sets up what they'll discuss.
+- Closing: 2 lines total. First line gives their overall take fitting their perspective. Second line is a brief sign-off.
+- Match the reviewer's professional perspective (e.g., acquisitions director thinks about marketability, cultural editor about artistic merit)
+- Sound natural and spoken, not scripted
+- Keep each line under 25 words
+- Do NOT use generic phrases like "I just finished watching" or "Keep pushing forward"
+
+Return JSON with openingLines (array of 2 strings) and closingLines (array of 2 strings).`
+    : `為這位評論者的語音筆記生成個人化的開場白和結語。
+
+評論者：${persona.name}
+角色：${persona.role}
+影片摘要：${report.executive_summary.slice(0, 300)}
+
+要求：
+- 開場白：共2行。第一行用他們獨特的聲音介紹自己。第二行說明將討論什麼。
+- 結語：共2行。第一行給出符合他們視角的整體評價。第二行是簡短的結尾語。
+- 符合評論者的專業視角（例如：收購總監關注市場性，文化編輯關注藝術價值）
+- 聽起來自然、口語化，不像念稿
+- 每行不超過40個字
+- 不要使用老套的句子如「我剛看完這部影片」或「繼續努力」
+
+回傳 JSON，包含 openingLines（2個字串的陣列）和 closingLines（2個字串的陣列）。`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: { parts: [{ text: userPrompt }] },
+      config: {
+        systemInstruction: systemPrompt,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            openingLines: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            closingLines: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ['openingLines', 'closingLines']
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    
+    if (result.openingLines?.length >= 2 && result.closingLines?.length >= 2) {
+      console.log('[VoiceScript] Generated personalized open/close for', persona.name);
+      return {
+        openingLines: result.openingLines.slice(0, 2),
+        closingLines: result.closingLines.slice(0, 2)
+      };
+    }
+  } catch (error) {
+    console.error('[VoiceScript] Failed to generate personalized lines:', error);
+  }
+
+  const fallbackOpen = isEnglish
+    ? [`This is ${persona.name}, ${persona.role}.`, `Here's what stood out to me from this screening.`]
+    : [`我是${persona.name}，${persona.role}。`, `以下是這次放映中讓我印象深刻的地方。`];
+  
+  const fallbackClose = isEnglish
+    ? [`That's my take on this one.`, `Looking forward to seeing where this goes.`]
+    : [`這是我對這部作品的看法。`, `期待看到後續的發展。`];
+
+  return { openingLines: fallbackOpen, closingLines: fallbackClose };
+}
+
+function buildDeterministicScript(
+  persona: PersonaMeta,
+  report: PersonaReport,
+  language: 'en' | 'zh-TW',
+  personalizedLines?: PersonalizedLines
 ): VoiceReportScript {
   const sections: VoiceReportScript['sections'] = [];
   const coverage = {
@@ -46,14 +147,15 @@ function buildDeterministicScript(
 
   const isEnglish = language === 'en';
 
+  const openingLines = personalizedLines?.openingLines || (isEnglish
+    ? [`This is ${persona.name}, ${persona.role}.`, `Here's what stood out to me from this screening.`]
+    : [`我是${persona.name}，${persona.role}。`, `以下是這次放映中讓我印象深刻的地方。`]);
+
   sections.push({
     sectionId: 'OPEN',
-    lines: isEnglish ? [
-      { text: `This is ${persona.name}, ${persona.role}. I just finished watching the film.`, refs: [] },
-      { text: `Here are my thoughts on what stood out and what needs attention.`, refs: [{ type: 'summary' }] }
-    ] : [
-      { text: `這是${persona.name}，${persona.role}。我剛看完這部影片。`, refs: [] },
-      { text: `以下是我對亮點與需要注意之處的想法。`, refs: [{ type: 'summary' }] }
+    lines: [
+      { text: openingLines[0], refs: [] },
+      { text: openingLines[1], refs: [{ type: 'summary' }] }
     ]
   });
 
@@ -127,14 +229,15 @@ function buildDeterministicScript(
     sections.push({ sectionId: 'OBJECTIVES', lines: answerLines });
   }
 
+  const closingLines = personalizedLines?.closingLines || (isEnglish
+    ? [`That's my take on this one.`, `Looking forward to seeing where this goes.`]
+    : [`這是我對這部作品的看法。`, `期待看到後續的發展。`]);
+
   sections.push({
     sectionId: 'CLOSE',
-    lines: isEnglish ? [
-      { text: `Overall, there's real potential here. With some focused revisions, this could really connect with audiences.`, refs: [{ type: 'summary' }] },
-      { text: `Keep pushing forward.`, refs: [] }
-    ] : [
-      { text: `整體而言，這部作品有真正的潛力。經過一些重點修改，它能夠真正打動觀眾。`, refs: [{ type: 'summary' }] },
-      { text: `繼續努力。`, refs: [] }
+    lines: [
+      { text: closingLines[0], refs: [{ type: 'summary' }] },
+      { text: closingLines[1], refs: [] }
     ]
   });
 
@@ -431,8 +534,11 @@ export async function generateVoiceScript(
 ): Promise<{ script: VoiceReportScript; validation: ValidationResult; hash: string }> {
   const hash = generateReportHash(report);
   
+  console.log('[VoiceScript] Generating personalized opening/closing...');
+  const personalizedLines = await generatePersonalizedOpenClose(persona, report, language);
+  
   console.log('[VoiceScript] Pass A: Building deterministic script...');
-  const draftScript = buildDeterministicScript(persona, report, language);
+  const draftScript = buildDeterministicScript(persona, report, language, personalizedLines);
   
   console.log('[VoiceScript] Pass B: Naturalizing script...');
   const naturalizedScript = await naturalizeScript(draftScript, persona, language);

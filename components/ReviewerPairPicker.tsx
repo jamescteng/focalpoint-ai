@@ -67,7 +67,8 @@ export function ReviewerPairPicker({
       swap: 'Swap speakers',
       generate: 'Generate dialogue',
       generating: 'Generating...',
-      reportReady: 'Report ready'
+      reportReady: 'Report ready',
+      englishOnly: 'Currently only available in English'
     },
     'zh-TW': {
       title: 'Podcast 對談',
@@ -78,11 +79,13 @@ export function ReviewerPairPicker({
       swap: '交換順序',
       generate: '產生對談',
       generating: '產生中...',
-      reportReady: '報告已完成'
+      reportReady: '報告已完成',
+      englishOnly: '此功能目前僅支援英文'
     }
   };
 
   const t = texts[language];
+  const isEnglish = language === 'en';
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -91,11 +94,26 @@ export function ReviewerPairPicker({
         <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
           {t.beta}
         </span>
+        {!isEnglish && (
+          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+            English Only
+          </span>
+        )}
       </div>
 
       <p className="text-gray-600 mb-6">{t.description}</p>
 
-      {!hasEnoughReports ? (
+      {!isEnglish ? (
+        <div className="text-center py-8 text-gray-500">
+          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+          </svg>
+          <p className="font-medium text-gray-700 mb-1">{t.englishOnly}</p>
+          <p className="text-sm text-gray-400">
+            {language === 'zh-TW' ? 'ElevenLabs 語音對談 API 目前不支援中文。' : 'The ElevenLabs dialogue API does not support Chinese yet.'}
+          </p>
+        </div>
+      ) : !hasEnoughReports ? (
         <div className="text-center py-8 text-gray-500">
           <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />

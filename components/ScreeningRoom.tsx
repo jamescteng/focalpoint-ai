@@ -147,6 +147,8 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
     turns: Array<{ speakerPersonaId: string; text: string }>;
   } | null>(null);
   const [dialogueError, setDialogueError] = useState<string | null>(null);
+  const [dialoguePair, setDialoguePair] = useState<{ personaIdA: string; personaIdB: string } | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   
   const getPersonaDisplayName = (personaId: string): string => {
     const alias = personaAliases.find(a => a.personaId === personaId);
@@ -239,10 +241,12 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
             turns: result.script.turns
           });
           setDialogueStatus('complete');
+          setIsRegenerating(false);
         }
       } else if (data.status === 'failed') {
         setDialogueError(data.error || 'Generation failed');
         setDialogueStatus('failed');
+        setIsRegenerating(false);
       } else {
         setTimeout(() => pollDialogueStatus(jobId), 2000);
       }
@@ -250,15 +254,19 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
       console.error('[Dialogue] Poll error:', err);
       setDialogueError('Failed to check status');
       setDialogueStatus('failed');
+      setIsRegenerating(false);
     }
   }, []);
 
-  const handleGenerateDialogue = async (personaIdA: string, personaIdB: string) => {
+  const handleGenerateDialogue = async (personaIdA: string, personaIdB: string, regenerate = false) => {
     if (!sessionId) return;
+    if (project.language !== 'en') return;
     
     setDialogueStatus('generating');
     setDialogueError(null);
-    setDialogueResult(null);
+    if (!regenerate) setDialogueResult(null);
+    setDialoguePair({ personaIdA, personaIdB });
+    if (regenerate) setIsRegenerating(true);
     
     try {
       const response = await fetch('/api/dialogue/create', {
@@ -284,13 +292,18 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
       console.error('[Dialogue] Create error:', err);
       setDialogueError(err instanceof Error ? err.message : 'Failed to generate dialogue');
       setDialogueStatus('failed');
+      setIsRegenerating(false);
     }
   };
 
   const handleRegenerateDialogue = () => {
-    setDialogueResult(null);
-    setDialogueStatus('idle');
-    setDialogueJobId(null);
+    if (dialoguePair) {
+      handleGenerateDialogue(dialoguePair.personaIdA, dialoguePair.personaIdB, true);
+    } else {
+      setDialogueResult(null);
+      setDialogueStatus('idle');
+      setDialogueJobId(null);
+    }
   };
 
   useEffect(() => {
@@ -312,6 +325,10 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
         );
         
         const latest = sortedByDate[0];
+        
+        if (latest.personaA && latest.personaB) {
+          setDialoguePair({ personaIdA: latest.personaA, personaIdB: latest.personaB });
+        }
         
         if (latest.status === 'complete' && latest.audioStorageKey) {
           const resultResponse = await fetch(`/api/dialogue/result/${latest.id}`);
@@ -657,7 +674,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                 turns={dialogueResult.turns}
                 language={project.language as 'en' | 'zh-TW'}
                 onRegenerate={handleRegenerateDialogue}
-                isRegenerating={false}
+                isRegenerating={isRegenerating}
               />
             ) : dialogueStatus === 'generating' ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
