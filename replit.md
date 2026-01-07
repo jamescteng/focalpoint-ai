@@ -198,6 +198,7 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 - `file_uri` (text, nullable - Gemini file URI)
 - `file_mime_type` (text, nullable)
 - `file_name` (text, nullable)
+- `persona_aliases` (jsonb, nullable) - Session-specific persona display names
 - `created_at` (timestamp)
 - `updated_at` (timestamp)
 
@@ -235,6 +236,7 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 - `GET /api/sessions/:sessionId/reports/:personaId/voice-script` - Get cached voice script
 - `POST /api/sessions/:sessionId/reports/:personaId/voice-script` - Generate voice script
 - `POST /api/sessions/:sessionId/reports/:personaId/voice-audio` - Generate audio via ElevenLabs
+- `GET /api/voice-audio/*` - Stream audio files from Object Storage (proxies /objects/ paths)
 
 ## Reviewer Voice Notes Feature
 
