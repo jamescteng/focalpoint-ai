@@ -1,0 +1,98 @@
+Goal
+
+Make large uploads reliable by ending the HTTP request quickly and moving “Gemini upload + processing” to an async job pipeline with status polling. Eliminate retry storms, stuck jobs, and rate-limit self-DOS.
+
+Root Cause (as evidenced by logs)
+
+/api/upload currently holds the browser request open through: spool → Gemini resumable upload → poll to ACTIVE.
+
+During that long silent period, the client/proxy/browser issues additional requests ([Vite Proxy] Starting large file upload...), which:
+
+trips /api/upload rate limit (2/min)
+
+causes aborted connections mid-stream
+
+leaves jobs stuck (SPOOLING) or abandoned unless recovered
+
+This is not primarily a “Gemini model” issue. Model choice just changes timing and makes the symptom more frequent.
+
+Plan Overview (2 phases)
+Phase 1 (Immediate hotfix: 0.5–1 day)
+
+Stop the retry storm without major refactor.
+
+Phase 2 (Proper job pipeline: 1–3 days)
+
+Implement a clean job-based upload+processing contract and UI.
+
+Phase 1 — Immediate Hotfix (stop retries + reduce silent time)
+1) Change /api/upload to return as soon as spool completes
+
+Current: respond only after Gemini file is ACTIVE.
+New: respond immediately after Busboy_Finish + Spool_Complete.
+
+Response payload:
+
+{ "jobId": "...", "state": "SPOOLED", "bytesReceived": 312344722 }
+
+
+Then kick off Gemini resumable upload + polling in the background (same process, but not awaited by the HTTP request).
+
+Why this works: the browser gets a timely response, so it stops retrying the upload route.
+
+2) Add GET /api/upload/status?jobId=...
+
+Return:
+
+{ "jobId": "...", "state": "SPOOLING|UPLOADING|PROCESSING|ACTIVE|FAILED", "progress": {...}, "fileUri": "...", "error": "..." }
+
+
+Frontend polls every 1–2s initially, then backs off.
+
+3) Frontend single-flight guard + UX progress
+
+Disable upload button immediately on submit.
+
+Prevent re-entry: if state !== IDLE, do nothing.
+
+Show progress stages:
+
+Uploading to FocalPoint (bytes received)
+
+Uploading to Gemini (server job state)
+
+Processing video (server job state)
+
+If the user refreshes, show “Resume upload job?” by reading jobId from localStorage.
+
+4) Rate limiter adjustments (avoid self-DOS)
+
+Keep strict limits on creating new uploads.
+
+Allow higher limits on status polling (e.g., 60/min).
+
+Do not count a retry of the same upload job against “new upload” quotas.
+
+Concrete:
+
+/api/upload (spool ingest): keep 2/min per attemptId, not per IP alone.
+
+/api/upload/status: 60/min per IP.
+
+5) Instrumentation (so you can prove it’s fixed)
+
+Log these fields on every upload request:
+
+attemptId, jobId, requestId
+
+req.on("aborted"), res.on("close")
+
+bytesReceived and lastByteAt
+
+total duration until response returned (should become “short”)
+
+Success criterion:
+
+You should see exactly one /api/upload request per attemptId.
+
+Vite proxy spam should disappear.

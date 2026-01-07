@@ -76,6 +76,27 @@ const statusLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const uploadStatusLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 status polls per minute per IP (polling every 1.5s = 40/min)
+  message: { error: 'Too many status requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const uploadLimiterByAttemptId = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 3, // 3 uploads per attemptId per minute (allows retries)
+  keyGenerator: (req) => {
+    const attemptId = req.headers['x-upload-attempt-id'] as string;
+    const ip = req.ip || 'unknown';
+    return attemptId ? `upload:${attemptId}` : `upload:ip:${ip}`;
+  },
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // =============================================================================
 // SECURITY: CORS Configuration
 // =============================================================================
@@ -408,6 +429,10 @@ function isValidAttemptId(attemptId: string): boolean {
 
 function generateJobId(): string {
   return `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function getJobByAttemptId(attemptId: string): UploadJob | undefined {
@@ -784,13 +809,21 @@ async function uploadFromSpoolFile(
   };
 }
 
-app.post('/api/upload', uploadLimiter, async (req, res) => {
-  logMem('upload_start');
-  
+app.post('/api/upload', uploadLimiterByAttemptId, async (req, res) => {
+  const reqId = generateRequestId();
   const attemptId = req.headers['x-upload-attempt-id'] as string | undefined;
-  const requestId = req.headers['x-request-id'] as string | undefined;
+  const contentLength = req.headers['content-length'];
   
-  FocalPointLogger.info("Upload_Request", { attemptId, requestId });
+  FocalPointLogger.info("Upload_Request_Received", { 
+    reqId,
+    method: req.method,
+    path: req.path,
+    attemptId: attemptId || 'MISSING',
+    contentLength: contentLength || 'unknown',
+    ip: req.ip
+  });
+  
+  logMem('upload_start');
   
   if (!attemptId) {
     FocalPointLogger.warn("Upload_MissingAttemptId", "X-Upload-Attempt-Id header is required");
@@ -1061,7 +1094,7 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/upload/status/:jobId', statusLimiter, (req, res) => {
+app.get('/api/upload/status/:jobId', uploadStatusLimiter, (req, res) => {
   const { jobId } = req.params;
   const job = uploadJobs.get(jobId);
   
