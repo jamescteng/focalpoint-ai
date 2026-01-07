@@ -242,26 +242,43 @@ Autoscale deployment - builds frontend with Vite, serves via Express backend.
 
 Converts a reviewer's report into a natural, spoken-style voice note with optional audio.
 
-### Architecture
-1. **Deterministic Outline Builder** (`server/voiceScriptService.ts`)
-   - Generates structured draft from report data
-   - Ensures coverage of all 5 highlights and 5 concerns
-   - Sections: OPEN, HIGHLIGHTS, CONCERNS, OBJECTIVES (if answers exist), CLOSE
+### Three-Pass Pipeline Architecture
 
-2. **LLM Naturalization Pass**
-   - Rewrites draft lines into natural speech using Gemini
-   - Preserves structure and references
-   - Falls back to deterministic script on error
+**Pass A: Deterministic Coverage** (`buildDeterministicScript`)
+- Generates structured draft from report data
+- Ensures coverage of all 5 highlights and 5 concerns
+- Sections: OPEN, HIGHLIGHTS, CONCERNS, OBJECTIVES (if answers exist), CLOSE
+- No conversational polish yet
 
-3. **Validation**
-   - Coverage check (all highlights/concerns)
-   - Word count for runtime estimation
-   - Timestamp verification (no invented timestamps)
+**Pass B: Conversational Naturalization** (LLM via Gemini)
+- Rewrites draft lines into speech-native text
+- Uses professional editor persona (not reviewer)
+- Produces reflective, fluid, first-person speech
+- Explicitly forbids audio tags at this stage
+- Target: 650-850 EN words / 900-1400 zh-TW characters
+- Falls back to deterministic script on error
 
-4. **ElevenLabs Audio Generation** (`server/elevenLabsService.ts`)
-   - Text-to-speech via ElevenLabs API
-   - Language-aware voice selection (English supported, zh-TW graceful fallback)
-   - Audio stored in Replit Object Storage
+**Pass C: Audio Markup Injection** (`injectAudioTags`)
+- Adds ElevenLabs audio tags to first line of each section
+- Does NOT change wording, only annotates emotional intent
+- Section tag mapping:
+  - OPEN: `[thoughtfully]`
+  - HIGHLIGHTS: `[warmly]`
+  - CONCERNS: `[carefully]`
+  - OBJECTIVES: `[reflective]`
+  - CLOSE: `[encouraging]`
+
+### Validation
+- Coverage check (all highlights/concerns)
+- Word count for runtime estimation
+- Timestamp verification (no invented timestamps)
+
+### ElevenLabs Audio Generation (`server/elevenLabsService.ts`)
+- Text-to-speech via ElevenLabs API
+- Model: `eleven_multilingual_v2`
+- Tuned settings: stability=0.45, similarity_boost=0.75, style=0.0
+- Language-aware voice selection (English supported, zh-TW transcript-only)
+- Audio stored in Replit Object Storage
 
 ### VoiceReportScript Schema
 ```typescript
