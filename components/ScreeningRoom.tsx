@@ -640,14 +640,14 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
             )}
 
             {activeTab === 'concerns' && (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {activeReport.concerns?.map((c, i) => (
                   <Card
                     key={i}
                     as="button"
                     variant="concern"
                     onClick={() => seekTo(c.seconds)}
-                    className="p-5 text-left"
+                    className="p-5 text-left flex flex-col"
                   >
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                       <Badge variant="dark">{c.timestamp}</Badge>
