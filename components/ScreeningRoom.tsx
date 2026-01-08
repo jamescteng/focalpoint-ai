@@ -80,12 +80,15 @@ const ExpandableContent: React.FC<{ content: string; maxLength?: number }> = ({
       <p className="text-[15px] text-slate-600 leading-relaxed">
         {expanded ? content : `${content.slice(0, maxLength)}...`}
       </p>
-      <button 
+      <span 
+        role="button"
+        tabIndex={0}
         onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-        className="text-sm font-medium text-blue-600 hover:text-blue-700 mt-2"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setExpanded(!expanded); } }}
+        className="text-sm font-medium text-blue-600 hover:text-blue-700 mt-2 cursor-pointer inline-block"
       >
         {expanded ? 'Show less' : 'Read more'}
-      </button>
+      </span>
     </div>
   );
 };
