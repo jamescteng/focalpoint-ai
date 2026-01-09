@@ -28,11 +28,11 @@ Get focus group-style feedback through configurable AI personas, each offering a
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS
-- **Backend**: Express.js with Busboy streaming
+- **Backend**: Express.js with direct-to-storage uploads
 - **AI**: Google Gemini API (`gemini-3-pro-preview`)
 - **TTS**: ElevenLabs (`eleven_v3` for English, `eleven_multilingual_v2` for zh-TW)
 - **Database**: PostgreSQL with Drizzle ORM
-- **Storage**: Replit Object Storage for audio files
+- **Storage**: Replit Object Storage for video uploads and audio files
 
 ## Quick Start
 
@@ -63,7 +63,9 @@ Get focus group-style feedback through configurable AI personas, each offering a
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/upload` | Upload video, returns fileUri |
+| `POST /api/uploads/init` | Initialize upload, get presigned URL |
+| `POST /api/uploads/complete` | Mark storage upload complete, start Gemini transfer |
+| `GET /api/uploads/status/:uploadId` | Poll upload/transfer progress |
 | `POST /api/analyze` | Analyze video with selected personas |
 | `GET /api/personas` | List available personas |
 | `POST /api/sessions/:id/reports/:personaId/voice-script` | Generate voice note |

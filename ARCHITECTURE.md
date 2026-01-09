@@ -114,8 +114,9 @@ COMPONENT DETAILS:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ BACKEND (Express + TypeScript)                               Port 3001      │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • POST /api/upload              - Receive video, stream to Gemini           │
-│ • GET  /api/upload/status       - Poll upload job status                    │
+│ • POST /api/uploads/init        - Initialize upload, get presigned URL      │
+│ • POST /api/uploads/complete    - Mark storage upload complete              │
+│ • GET  /api/uploads/status/:id  - Poll upload/transfer progress             │
 │ • POST /api/analyze             - Run AI analysis with selected personas    │
 │ • CRUD /api/sessions            - Session persistence                       │
 │ • CRUD /api/sessions/:id/reports - Report storage                           │
@@ -144,6 +145,8 @@ COMPONENT DETAILS:
                                 ┌───────────────────────┐
                                 │ REPLIT OBJECT STORAGE │
                                 ├───────────────────────┤
+                                │ • Video uploads       │
+                                │   (direct-to-storage) │
                                 │ • Voice note audio    │
                                 │ • Podcast dialogue    │
                                 │   audio files         │
@@ -156,48 +159,71 @@ COMPONENT DETAILS:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    VIDEO UPLOAD FLOW (Async Job-Based)                       │
+│                VIDEO UPLOAD FLOW (Direct-to-Storage Architecture)            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-USER                    FRONTEND                 BACKEND                 GEMINI
- │                         │                        │                       │
- │ Select video file       │                        │                       │
- │────────────────────────▶│                        │                       │
- │                         │                        │                       │
- │                         │ POST /api/upload       │                       │
- │                         │ (multipart stream)     │                       │
- │                         │───────────────────────▶│                       │
- │                         │                        │                       │
- │                         │                        │ Stream to temp file   │
- │                         │                        │──────────┐            │
- │                         │                        │          │            │
- │                         │ { jobId, status }      │◀─────────┘            │
- │                         │◀───────────────────────│                       │
- │                         │                        │                       │
- │  Show progress bar      │                        │ Upload to Gemini      │
- │◀────────────────────────│                        │ (16MB chunks)         │
- │                         │                        │──────────────────────▶│
- │                         │                        │                       │
- │                         │ Poll GET /status/:id   │                       │
- │                         │───────────────────────▶│                       │
- │                         │                        │                       │
- │                         │ { progress: 45% }      │ Processing...         │
- │                         │◀───────────────────────│◀──────────────────────│
- │                         │                        │                       │
- │  Update progress        │        ...             │        ...            │
- │◀────────────────────────│                        │                       │
- │                         │                        │                       │
- │                         │ { status: ACTIVE,      │ { fileUri }           │
- │                         │   fileUri }            │◀──────────────────────│
- │                         │◀───────────────────────│                       │
- │                         │                        │                       │
- │  Ready for analysis!    │                        │                       │
- │◀────────────────────────│                        │                       │
+USER          FRONTEND              BACKEND           OBJECT STORAGE     GEMINI
+ │               │                     │                    │               │
+ │ Select file   │                     │                    │               │
+ │──────────────▶│                     │                    │               │
+ │               │                     │                    │               │
+ │               │ POST /api/uploads/init                   │               │
+ │               │ { filename, size, mimeType, attemptId }  │               │
+ │               │────────────────────▶│                    │               │
+ │               │                     │                    │               │
+ │               │                     │ Generate presigned │               │
+ │               │                     │ PUT URL (15min TTL)│               │
+ │               │                     │───────────────────▶│               │
+ │               │                     │                    │               │
+ │               │ { uploadId, putUrl }│                    │               │
+ │               │◀────────────────────│                    │               │
+ │               │                     │                    │               │
+ │ Progress 0-40%│ XHR PUT to presigned URL                 │               │
+ │◀──────────────│─────────────────────────────────────────▶│               │
+ │               │                     │                    │               │
+ │               │ POST /api/uploads/complete               │               │
+ │               │ { uploadId }        │                    │               │
+ │               │────────────────────▶│                    │               │
+ │               │                     │                    │               │
+ │               │                     │ Verify size match  │               │
+ │               │                     │◀───────────────────│               │
+ │               │                     │                    │               │
+ │               │ { status: STORED }  │                    │               │
+ │               │◀────────────────────│                    │               │
+ │               │                     │                    │               │
+ │               │                     │ Background job:    │               │
+ │               │                     │ Transfer to Gemini │               │
+ │               │                     │ (16MB chunks)      │               │
+ │               │                     │────────────────────────────────────▶
+ │               │                     │                    │               │
+ │ Progress      │ Poll GET /api/uploads/status/:uploadId   │               │
+ │ 40-95%        │────────────────────▶│                    │               │
+ │◀──────────────│◀────────────────────│                    │               │
+ │               │                     │                    │  Processing   │
+ │               │        ...          │         ...        │      ...      │
+ │               │                     │                    │               │
+ │               │ { status: ACTIVE,   │                    │ { fileUri }   │
+ │ Progress 100% │   geminiFileUri }   │◀───────────────────────────────────│
+ │◀──────────────│◀────────────────────│                    │               │
+ │               │                     │                    │               │
+ │ Ready!        │                     │                    │               │
 
 
-JOB STATES:
-  RECEIVED → SPOOLING → UPLOADING → PROCESSING → ACTIVE
-                                             └─→ ERROR
+UPLOAD STATES:
+  UPLOADING → STORED → TRANSFERRING_TO_GEMINI → ACTIVE
+                                            └─→ FAILED
+
+PROGRESS MAPPING:
+  Stage 1 (Storage Upload):  0-40%   - XHR progress events
+  Stage 2 (Gemini Transfer): 40-95%  - Backend chunk progress
+  Stage 3 (Ready):           100%    - Gemini file ACTIVE
+
+KEY FEATURES:
+  • Direct browser-to-storage upload bypasses server size limits
+  • Presigned URLs valid for 15 minutes
+  • Same attemptId returns same uploadId (idempotency)
+  • Server-side size verification (hard failure on mismatch)
+  • MIME type preserved through entire pipeline
 ```
 
 ---

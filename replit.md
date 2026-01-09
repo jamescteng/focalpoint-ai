@@ -87,7 +87,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
     - `eleven_v3` model for English voice notes (supports audio tags).
     - `eleven_multilingual_v2` model for zh-TW voice notes.
     - Text-to-Dialogue API for podcast generation (English only).
-- **Replit Object Storage**: Used for storing generated audio files (voice notes and podcast dialogues).
+- **Replit Object Storage**: Used for direct-to-storage video uploads and generated audio files (voice notes and podcast dialogues).
 
 ## Key Files
 - `server/index.ts` - Express server entry point with all API routes
