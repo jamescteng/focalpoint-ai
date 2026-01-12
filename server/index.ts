@@ -74,7 +74,7 @@ app.use(cors({
 
 const jsonParser = express.json({ limit: '50mb' });
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/upload')) {
+  if (req.path.startsWith('/api/uploads')) {
     return next();
   }
   return jsonParser(req, res, next);

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import express from 'express';
 import { randomUUID } from 'crypto';
 import { db } from './db.js';
 import { uploads } from '../shared/schema.js';
@@ -7,6 +8,7 @@ import { ObjectStorageService, objectStorageClient } from './replit_integrations
 import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
+const jsonParser = express.json({ limit: '50mb' });
 const objectStorageService = new ObjectStorageService();
 
 const ALLOWED_VIDEO_MIMETYPES = [
@@ -79,7 +81,7 @@ async function signObjectURL({
   return signedURL;
 }
 
-router.post('/init', async (req: Request, res: Response) => {
+router.post('/init', jsonParser, async (req: Request, res: Response) => {
   try {
     const { filename, mimeType, sizeBytes, attemptId, sessionId } = req.body as InitRequest;
 
@@ -167,7 +169,7 @@ router.post('/init', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/complete', async (req: Request, res: Response) => {
+router.post('/complete', jsonParser, async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.body as CompleteRequest;
 
