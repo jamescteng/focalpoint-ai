@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, AgentReport, Persona, VideoFingerprint } from '../types';
 import { PERSONAS } from '../constants.tsx';
 import { Button } from './Button';
-import { Card, Badge, Pill, SeverityPill, Tabs } from './ui';
+import { Card, Tabs, formatFileSize as formatSize } from './ui';
 import { VoicePlayer } from './VoicePlayer';
 import { ReviewerPairPicker } from './ReviewerPairPicker';
 import { DialoguePlayer } from './DialoguePlayer';
+import { HighlightsList } from './HighlightCard';
+import { ConcernsList } from './ConcernCard';
 
 interface PersonaAlias {
   personaId: string;
@@ -26,79 +28,6 @@ interface ScreeningRoomProps {
   personaAliases?: PersonaAlias[];
 }
 
-const getCategoryIcon = (category: string) => {
-  const icons: Record<string, string> = {
-    emotion: '💫',
-    craft: '🎬',
-    clarity: '💡',
-    marketability: '📈',
-    pacing: '⏱️',
-    character: '👤',
-    audio: '🔊',
-    visual: '👁️',
-    tone: '🎭',
-    authorship: '✨',
-    cultural_relevance: '🌍',
-    emotional_distance: '💔',
-    originality: '🎯',
-    cultural_resonance: '🌐',
-    emotional_pull: '❤️',
-    relatability: '🤝',
-    confusion: '❓',
-    pacing_drag: '🐌',
-    stakes_unclear: '🎯',
-    message_clarity: '📢',
-    emotional_authenticity: '💯',
-    ethical_storytelling: '⚖️',
-    impact_potential: '🚀',
-    message_confusion: '🌫️',
-    ethical_tension: '⚠️',
-    emotional_manipulation: '🎭',
-    lack_of_context: '📋',
-    trust_gap: '🔓'
-  };
-  return icons[category] || '📌';
-};
-
-const formatCategory = (category: string) => {
-  return category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-};
-
-const ExpandableContent: React.FC<{ content: string; maxLength?: number }> = ({ 
-  content, 
-  maxLength = 120 
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const shouldTruncate = content.length > maxLength;
-  
-  if (!shouldTruncate) {
-    return <p className="text-[15px] text-slate-600 leading-relaxed">{content}</p>;
-  }
-  
-  return (
-    <div>
-      <p className="text-[15px] text-slate-600 leading-relaxed">
-        {expanded ? content : `${content.slice(0, maxLength)}...`}
-      </p>
-      <span 
-        role="button"
-        tabIndex={0}
-        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setExpanded(!expanded); } }}
-        className="text-sm font-medium text-blue-600 hover:text-blue-700 mt-2 cursor-pointer inline-block"
-      >
-        {expanded ? 'Show less' : 'Read more'}
-      </span>
-    </div>
-  );
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}KB`;
-  return `${bytes}B`;
-};
 
 const verifyFingerprint = (file: File, fingerprint: VideoFingerprint): { match: boolean; issues: string[] } => {
   const issues: string[] = [];
@@ -107,7 +36,7 @@ const verifyFingerprint = (file: File, fingerprint: VideoFingerprint): { match: 
     issues.push(`File name differs: expected "${fingerprint.fileName}", got "${file.name}"`);
   }
   if (file.size !== fingerprint.fileSize) {
-    issues.push(`File size differs: expected ${formatFileSize(fingerprint.fileSize)}, got ${formatFileSize(file.size)}`);
+    issues.push(`File size differs: expected ${formatSize(fingerprint.fileSize)}, got ${formatSize(file.size)}`);
   }
   if (file.lastModified !== fingerprint.lastModified) {
     issues.push(`Last modified date differs`);
@@ -533,7 +462,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                 <h3 className="text-lg font-semibold text-slate-700 mb-2">Video Not Attached</h3>
                 {project.videoFingerprint ? (
                   <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
-                    This screening was created from: <span className="font-medium text-slate-700">{project.videoFingerprint.fileName}</span> ({formatFileSize(project.videoFingerprint.fileSize)})
+                    This screening was created from: <span className="font-medium text-slate-700">{project.videoFingerprint.fileName}</span> ({formatSize(project.videoFingerprint.fileSize)})
                   </p>
                 ) : (
                   <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
@@ -617,54 +546,11 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
             )}
 
             {activeTab === 'highlights' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeReport.highlights?.map((h, i) => (
-                  <Card
-                    key={i}
-                    as="button"
-                    variant="highlight"
-                    onClick={() => seekTo(h.seconds)}
-                    className="p-5 text-left flex flex-col"
-                  >
-                    <div className="flex items-center gap-2 mb-3 flex-wrap">
-                      <Badge variant="dark">{h.timestamp}</Badge>
-                      <Pill icon={getCategoryIcon(h.category)} variant="highlight">
-                        {formatCategory(h.category)}
-                      </Pill>
-                    </div>
-                    <p className="text-[15px] text-slate-800 font-medium mb-2 leading-snug">{h.summary}</p>
-                    <ExpandableContent content={h.why_it_works} />
-                  </Card>
-                ))}
-              </div>
+              <HighlightsList highlights={activeReport.highlights || []} onSeek={seekTo} />
             )}
 
             {activeTab === 'concerns' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeReport.concerns?.map((c, i) => (
-                  <Card
-                    key={i}
-                    as="button"
-                    variant="concern"
-                    onClick={() => seekTo(c.seconds)}
-                    className="p-5 text-left flex flex-col"
-                  >
-                    <div className="flex items-center gap-2 mb-3 flex-wrap">
-                      <Badge variant="dark">{c.timestamp}</Badge>
-                      <Pill icon={getCategoryIcon(c.category)} variant="default">
-                        {formatCategory(c.category)}
-                      </Pill>
-                      <SeverityPill severity={c.severity} />
-                    </div>
-                    <p className="text-[15px] text-slate-800 font-semibold mb-2 leading-snug">{c.issue}</p>
-                    <p className="text-sm text-rose-600 font-medium mb-3">Impact: {c.impact}</p>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Suggested Fix</p>
-                      <p className="text-sm text-slate-600 leading-relaxed">{c.suggested_fix}</p>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+              <ConcernsList concerns={activeReport.concerns || []} onSeek={seekTo} />
             )}
           </section>
 
