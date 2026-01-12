@@ -100,12 +100,22 @@ COMPONENT DETAILS:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ FRONTEND (React + TypeScript + Vite)                         Port 5000      │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│ Main Components:                                                            │
 │ • App.tsx              - Main state management, session orchestration       │
 │ • UploadForm.tsx       - Video upload, metadata entry, fingerprint capture  │
 │ • ScreeningRoom.tsx    - Report display, video player, reviewer switching   │
 │ • VoicePlayer.tsx      - Voice note audio playback and transcript           │
 │ • ReviewerPairPicker.tsx - Podcast persona selection UI                     │
 │ • DialoguePlayer.tsx   - Podcast dialogue playback with transcript          │
+│                                                                             │
+│ Extracted UI Components:                                                    │
+│ • HighlightCard.tsx    - Individual highlight display with HighlightsList   │
+│ • ConcernCard.tsx      - Individual concern display with ConcernsList       │
+│ • ui/ExpandableContent.tsx - Truncated text with expand/collapse            │
+│ • ui/reportHelpers.ts  - Category icons, formatters                         │
+│ • ui/Card.tsx, Badge.tsx, Pill.tsx, SeverityPill.tsx - Reusable primitives  │
+│                                                                             │
+│ Services:                                                                   │
 │ • geminiService.ts     - API client with polling logic                      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
@@ -114,6 +124,28 @@ COMPONENT DETAILS:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ BACKEND (Express + TypeScript)                               Port 3001      │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│ Entry Point:                                                                │
+│ • server/index.ts (~175 lines) - Mounts all route modules                   │
+│                                                                             │
+│ Route Modules (server/routes/):                                             │
+│ • sessions.ts    - Session CRUD endpoints                                   │
+│ • reports.ts     - Report get/save endpoints                                │
+│ • voice.ts       - Voice script generation, audio streaming                 │
+│ • analyze.ts     - Video analysis endpoint                                  │
+│                                                                             │
+│ Other Routes:                                                               │
+│ • uploadRoutes.ts   - Direct-to-storage upload endpoints, Gemini transfer   │
+│ • dialogueRoutes.ts - Podcast dialogue job endpoints                        │
+│                                                                             │
+│ Middleware (server/middleware/):                                            │
+│ • validation.ts     - Shared input validation                               │
+│ • rateLimiting.ts   - Rate limiting configuration                           │
+│                                                                             │
+│ Utilities (server/utils/):                                                  │
+│ • personaAliases.ts - Persona alias generation                              │
+│ • logger.ts         - Centralized logging                                   │
+│                                                                             │
+│ API Endpoints:                                                              │
 │ • POST /api/uploads/init        - Initialize upload, get presigned URL      │
 │ • POST /api/uploads/complete    - Mark storage upload complete              │
 │ • GET  /api/uploads/status/:id  - Poll upload/transfer progress             │
