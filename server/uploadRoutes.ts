@@ -10,6 +10,7 @@ import { eq, and } from 'drizzle-orm';
 import { ObjectStorageService, objectStorageClient } from './replit_integrations/object_storage/objectStorage.js';
 import { GoogleGenAI } from "@google/genai";
 import { compressVideoForAnalysis, cleanupTempFile } from './services/videoCompressor.js';
+import { shouldCompress, getVideoMetadata } from './services/compressionDecider.js';
 
 const router = Router();
 const jsonParser = express.json({ limit: '50mb' });
@@ -324,67 +325,108 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
         .on('error', reject);
     });
 
-    console.log(`[Upload] Download complete for ${uploadId}, starting compression...`);
+    console.log(`[Upload] Download complete for ${uploadId}, checking if compression is needed...`);
 
-    // Stage 2: Compress video
+    // Stage 2: Check video metadata and decide if compression is needed
     await db
       .update(uploads)
       .set({
-        progress: { stage: 'compressing', pct: 45, message: 'Creating analysis proxy (720p, 10fps)...' },
+        progress: { stage: 'analyzing', pct: 43, message: 'Analyzing video...' },
         updatedAt: new Date(),
       })
       .where(eq(uploads.uploadId, uploadId));
 
-    const compressionResult = await compressVideoForAnalysis(
-      tempInputPath,
-      async (progress) => {
-        const pct = 45 + Math.floor(progress.percent * 0.3);
-        await db
-          .update(uploads)
-          .set({
-            progress: { stage: 'compressing', pct, message: `Compressing: ${progress.percent}%` },
-            updatedAt: new Date(),
-          })
-          .where(eq(uploads.uploadId, uploadId));
-      }
-    );
+    const videoMetadata = await getVideoMetadata(tempInputPath);
+    const compressionDecision = shouldCompress(videoMetadata);
+    
+    let fileForGemini: string;
+    let fileSize: number;
+    let wasCompressed = false;
 
-    compressedPath = compressionResult.outputPath;
-    const compressedSize = compressionResult.outputSize;
+    if (compressionDecision.shouldCompress) {
+      console.log(`[Upload] Compression needed for ${uploadId}:`);
+      compressionDecision.reasons.forEach(reason => console.log(`  - ${reason}`));
+      
+      await db
+        .update(uploads)
+        .set({
+          progress: { stage: 'compressing', pct: 45, message: 'Creating analysis proxy (720p, 10fps)...' },
+          updatedAt: new Date(),
+        })
+        .where(eq(uploads.uploadId, uploadId));
 
-    console.log(`[Upload] Compression complete for ${uploadId}: ${(compressedSize / 1024 / 1024).toFixed(1)}MB (${compressionResult.compressionRatio.toFixed(1)}x smaller)`);
+      const compressionResult = await compressVideoForAnalysis(
+        tempInputPath,
+        async (progress) => {
+          const pct = 45 + Math.floor(progress.percent * 0.3);
+          await db
+            .update(uploads)
+            .set({
+              progress: { stage: 'compressing', pct, message: `Compressing: ${progress.percent}%` },
+              updatedAt: new Date(),
+            })
+            .where(eq(uploads.uploadId, uploadId));
+        }
+      );
 
-    // Stage 3: Upload compressed proxy to Object Storage
-    // Generate safe proxy key - append _proxy.mp4 while avoiding overwrite of original
-    const extMatch = upload.storageKey.match(/\.[^.]+$/);
-    const proxyStorageKey = extMatch 
-      ? upload.storageKey.replace(/\.[^.]+$/, '_proxy.mp4')
-      : `${upload.storageKey}_proxy.mp4`;
-    const proxyFullPath = `${privateDir}/${proxyStorageKey}`;
-    const { bucketName: proxyBucket, objectName: proxyObject } = parseObjectPath(proxyFullPath);
+      compressedPath = compressionResult.outputPath;
+      fileForGemini = compressedPath;
+      fileSize = compressionResult.outputSize;
+      wasCompressed = true;
 
-    await db
-      .update(uploads)
-      .set({
-        status: 'COMPRESSED',
-        proxyStorageKey,
-        proxySizeBytes: compressedSize,
-        progress: { stage: 'compressed', pct: 75, message: 'Proxy created, uploading to storage...' },
-        updatedAt: new Date(),
-      })
-      .where(eq(uploads.uploadId, uploadId));
+      console.log(`[Upload] Compression complete for ${uploadId}: ${(fileSize / 1024 / 1024).toFixed(1)}MB (${compressionResult.compressionRatio.toFixed(1)}x smaller)`);
+    } else {
+      console.log(`[Upload] No compression needed for ${uploadId}:`);
+      console.log(`  - File size: ${(videoMetadata.fileSizeBytes / 1024 / 1024).toFixed(1)}MB`);
+      console.log(`  - Resolution: ${videoMetadata.width}x${videoMetadata.height}`);
+      console.log(`  - FPS: ${videoMetadata.fps.toFixed(2)}`);
+      
+      fileForGemini = tempInputPath;
+      fileSize = videoMetadata.fileSizeBytes;
+      
+      await db
+        .update(uploads)
+        .set({
+          progress: { stage: 'skipped_compression', pct: 75, message: 'Video already optimized, proceeding...' },
+          updatedAt: new Date(),
+        })
+        .where(eq(uploads.uploadId, uploadId));
+    }
 
-    const proxyBucketRef = objectStorageClient.bucket(proxyBucket);
-    const proxyFile = proxyBucketRef.file(proxyObject);
+    // Stage 3: Upload file to Object Storage (only if compressed, otherwise skip)
+    if (wasCompressed) {
+      const extMatch = upload.storageKey.match(/\.[^.]+$/);
+      const proxyStorageKey = extMatch 
+        ? upload.storageKey.replace(/\.[^.]+$/, '_proxy.mp4')
+        : `${upload.storageKey}_proxy.mp4`;
+      const proxyFullPath = `${privateDir}/${proxyStorageKey}`;
+      const { bucketName: proxyBucket, objectName: proxyObject } = parseObjectPath(proxyFullPath);
 
-    await new Promise<void>((resolve, reject) => {
-      fs.createReadStream(compressedPath!)
-        .pipe(proxyFile.createWriteStream({ resumable: false }))
-        .on('finish', resolve)
-        .on('error', reject);
-    });
+      await db
+        .update(uploads)
+        .set({
+          status: 'COMPRESSED',
+          proxyStorageKey,
+          proxySizeBytes: fileSize,
+          progress: { stage: 'compressed', pct: 75, message: 'Proxy created, uploading to storage...' },
+          updatedAt: new Date(),
+        })
+        .where(eq(uploads.uploadId, uploadId));
 
-    console.log(`[Upload] Proxy uploaded to storage for ${uploadId}`);
+      const proxyBucketRef = objectStorageClient.bucket(proxyBucket);
+      const proxyFile = proxyBucketRef.file(proxyObject);
+
+      await new Promise<void>((resolve, reject) => {
+        fs.createReadStream(fileForGemini)
+          .pipe(proxyFile.createWriteStream({ resumable: false }))
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+
+      console.log(`[Upload] Proxy uploaded to storage for ${uploadId}`);
+    } else {
+      console.log(`[Upload] Skipping proxy storage for ${uploadId} (using original file)`);
+    }
 
     // Stage 4: Transfer compressed proxy to Gemini
     await db
@@ -396,7 +438,13 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
       })
       .where(eq(uploads.uploadId, uploadId));
 
-    console.log(`[Upload] Starting Gemini upload for ${uploadId} (${(compressedSize / 1024 / 1024).toFixed(1)}MB proxy)`);
+    const fileTypeLabel = wasCompressed ? 'compressed proxy' : 'original file';
+    console.log(`[Upload] Starting Gemini upload for ${uploadId} (${(fileSize / 1024 / 1024).toFixed(1)}MB ${fileTypeLabel})`);
+
+    const geminiMimeType = wasCompressed ? 'video/mp4' : upload.mimeType;
+    const displayName = wasCompressed 
+      ? `${upload.filename} (analysis proxy)` 
+      : upload.filename;
 
     const CHUNK_SIZE = 16 * 1024 * 1024;
     const startUploadResponse = await fetch(
@@ -407,11 +455,11 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
           'Content-Type': 'application/json',
           'X-Goog-Upload-Protocol': 'resumable',
           'X-Goog-Upload-Command': 'start',
-          'X-Goog-Upload-Header-Content-Length': String(compressedSize),
-          'X-Goog-Upload-Header-Content-Type': 'video/mp4',
+          'X-Goog-Upload-Header-Content-Length': String(fileSize),
+          'X-Goog-Upload-Header-Content-Type': geminiMimeType,
         },
         body: JSON.stringify({
-          file: { display_name: `${upload.filename} (analysis proxy)` },
+          file: { display_name: displayName },
         }),
       }
     );
@@ -426,10 +474,11 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
       throw new Error('No upload URI returned from Gemini');
     }
 
-    const readStream = fs.createReadStream(compressedPath);
+    const readStream = fs.createReadStream(fileForGemini);
     let offset = 0;
     let currentChunk = Buffer.alloc(0);
     let finalizeResponseText: string | null = null;
+    let streamFullyConsumed = false;
 
     for await (const data of readStream) {
       currentChunk = Buffer.concat([currentChunk, data as Buffer]);
@@ -438,7 +487,7 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
         const chunk = currentChunk.slice(0, CHUNK_SIZE);
         currentChunk = currentChunk.slice(CHUNK_SIZE);
         
-        const isLast = offset + chunk.length >= compressedSize;
+        const isLast = offset + chunk.length >= fileSize;
         const command = isLast ? 'upload, finalize' : 'upload';
 
         const uploadResponse = await fetch(uploadUri, {
@@ -463,10 +512,10 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
         }
 
         offset += chunk.length;
-        const transferPct = Math.floor((offset / compressedSize) * 100);
+        const transferPct = Math.floor((offset / fileSize) * 100);
         const overallPct = 80 + Math.floor(transferPct * 0.15);
         
-        console.log(`[Upload] Gemini transfer ${uploadId}: ${transferPct}% (${Math.round(offset / 1024 / 1024)}MB / ${Math.round(compressedSize / 1024 / 1024)}MB)`);
+        console.log(`[Upload] Gemini transfer ${uploadId}: ${transferPct}% (${Math.round(offset / 1024 / 1024)}MB / ${Math.round(fileSize / 1024 / 1024)}MB)`);
         
         await db
           .update(uploads)
@@ -498,6 +547,9 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
 
       finalizeResponseText = responseText;
     }
+    
+    streamFullyConsumed = true;
+    console.log(`[Upload] File stream fully consumed for ${uploadId}`);
 
     // Update progress to processing stage
     await db
@@ -552,12 +604,14 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
     
     await pollForActive(uploadId, geminiFileName, GEMINI_API_KEY);
 
+    console.log(`[Upload] Successfully processed ${uploadId}, cleaning up temp files...`);
+
   } catch (error: any) {
     console.error(`[Upload] Processing error for ${uploadId}:`, error);
     await updateUploadError(uploadId, error.message || 'Processing failed');
   } finally {
-    if (tempInputPath) cleanupTempFile(tempInputPath);
     if (compressedPath) cleanupTempFile(compressedPath);
+    if (tempInputPath) cleanupTempFile(tempInputPath);
   }
 }
 
