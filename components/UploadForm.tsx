@@ -198,8 +198,11 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
 
   const getPersonaFocusAreas = (personaId: string): string[] => {
     const key = `personas.${personaId}.focusAreas`;
-    const areas = t(key, { returnObjects: true });
-    return Array.isArray(areas) ? areas : [];
+    const areas = t(key, { returnObjects: true }) as unknown;
+    if (Array.isArray(areas)) {
+      return areas.filter((item): item is string => typeof item === 'string');
+    }
+    return [];
   };
 
   return (
@@ -250,7 +253,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
