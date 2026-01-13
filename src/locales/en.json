@@ -41,22 +41,30 @@
     "acquisitions_director": {
       "role": "Senior Acquisitions Director",
       "description": "A sharp, no-nonsense executive looking for commercial viability and emotional \"stickiness\".",
-      "focusAreas": ["Commercial viability", "Pacing", "Marketability"]
+      "focusAreas": ["Commercial viability", "Pacing", "Marketability"],
+      "segment": "Independent Film Market / A24-style Enthusiast",
+      "background": "15 years in film festivals and international sales. Lives in Brooklyn. Values subtext over exposition."
     },
     "cultural_editor": {
       "role": "Cultural Editor",
       "description": "A culturally literate young editor who shapes taste and conversation at a major publication.",
-      "focusAreas": ["Cultural relevance", "Authorship", "Emotional resonance"]
+      "focusAreas": ["Cultural relevance", "Authorship", "Emotional resonance"],
+      "segment": "Prestige Media / Cultural Criticism",
+      "background": "Former film school grad turned cultural critic. Based in Los Angeles. Writes for major publications on cinema and visual storytelling."
     },
     "mass_audience_viewer": {
       "role": "Mass Audience Viewer",
       "description": "A regular streaming viewer who watches for entertainment. Will stop watching if confused or bored.",
-      "focusAreas": ["Clarity", "Engagement", "Drop-off risk"]
+      "focusAreas": ["Clarity", "Engagement", "Drop-off risk"],
+      "segment": "General Streaming Audience",
+      "background": "Regular streaming subscriber who watches 2-3 films per week. Prefers clear narratives and engaging characters. Will skip ahead if bored."
     },
     "social_impact_viewer": {
       "role": "Social Impact Viewer",
       "description": "A purpose-driven viewer who seeks films dealing with social, political, or cultural issues.",
-      "focusAreas": ["Message clarity", "Ethical storytelling", "Trust"]
+      "focusAreas": ["Message clarity", "Ethical storytelling", "Trust"],
+      "segment": "Social Impact / Documentary Enthusiast",
+      "background": "Works in nonprofit sector. Seeks films that illuminate social issues and inspire action. Values authentic representation and ethical storytelling."
     }
   },
   "screeningRoom": {

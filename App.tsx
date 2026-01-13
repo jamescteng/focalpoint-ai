@@ -261,7 +261,9 @@ const App: React.FC = () => {
   };
 
   const addPersonaReport = async (personaId: string) => {
-    if (!project || !uploadResult) return;
+    if (!project) return;
+    const isYoutubeSession = !!project.youtubeUrl;
+    if (!isYoutubeSession && !uploadResult) return;
     if (reports.some(r => r.personaId === personaId)) return;
 
     const persona = PERSONAS.find(p => p.id === personaId);

@@ -404,7 +404,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-900 text-sm">{getPersonaDisplayName(persona.id)}</p>
-                      <p className="text-xs text-slate-500">{persona.role}</p>
+                      <p className="text-xs text-slate-500">{t(`personas.${persona.id}.role`)}</p>
                     </div>
                     <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -697,11 +697,11 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
               <div className="space-y-4">
                 <Card className="p-4">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('screeningRoom.primaryMarket')}</p>
-                  <p className="text-base text-slate-900 font-semibold">{activePersona.demographics.segment}</p>
+                  <p className="text-base text-slate-900 font-semibold">{t(`personas.${activePersona.id}.segment`)}</p>
                 </Card>
                 <Card className="p-4">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('screeningRoom.background')}</p>
-                  <p className="text-sm text-slate-600 leading-relaxed">"{activePersona.demographics.background}"</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">"{t(`personas.${activePersona.id}.background`)}"</p>
                 </Card>
               </div>
             )}
