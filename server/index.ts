@@ -10,6 +10,7 @@ import uploadRoutes from './uploadRoutes.js';
 import { sessionsRouter, reportsRouter, voiceRouter, analyzeRouter } from './routes/index.js';
 import { statusLimiter } from './middleware/rateLimiting.js';
 import { FocalPointLogger } from './utils/logger.js';
+import { requestIdMiddleware, requestLoggingMiddleware, globalErrorHandler } from './middleware/requestId.js';
 
 console.log('[FocalPoint] All imports successful');
 
@@ -38,6 +39,9 @@ app.get('/', (req, res, next) => {
 });
 
 app.set('trust proxy', 1);
+
+app.use(requestIdMiddleware);
+app.use(requestLoggingMiddleware);
 
 console.log('[FocalPoint] Configuring middleware...');
 
@@ -134,6 +138,8 @@ if (isProduction) {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
+
+app.use(globalErrorHandler);
 
 process.on('uncaughtException', (error) => {
   console.error('[FocalPoint][FATAL] Uncaught Exception:', error);

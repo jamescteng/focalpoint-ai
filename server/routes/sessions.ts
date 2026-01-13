@@ -3,6 +3,7 @@ import { storage } from '../storage.js';
 import { FocalPointLogger } from '../utils/logger.js';
 import { generatePersonaAliases } from '../utils/personaAliases.js';
 import { statusLimiter } from '../middleware/rateLimiting.js';
+import { fetchWithTrace } from '../utils/fetchWithTrace.js';
 import { 
   MAX_TITLE_LENGTH, 
   MAX_QUESTIONS_COUNT, 
@@ -153,20 +154,22 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
       
       let response: Response;
       try {
-        response = await fetch(apiUrl);
+        response = await fetchWithTrace(req.requestId, apiUrl, { timeout: 10000 });
       } catch (fetchError: any) {
-        FocalPointLogger.error("YouTube_API_Fetch", `Network error: ${fetchError.message || fetchError}`);
+        FocalPointLogger.error("YouTube_API_Fetch", `[${req.requestId}] Network error: ${fetchError.message || fetchError}`);
         return res.json({ 
           valid: false, 
-          error: 'Network error when verifying video. Please try again.' 
+          error: 'Network error when verifying video. Please try again.',
+          requestId: req.requestId
         });
       }
       
       if (!response.ok) {
-        FocalPointLogger.warn("YouTube_API", `API returned ${response.status}`);
+        FocalPointLogger.warn("YouTube_API", `[${req.requestId}] API returned ${response.status}`);
         return res.json({ 
           valid: false, 
-          error: 'Unable to verify video. Please try again.' 
+          error: 'Unable to verify video. Please try again.',
+          requestId: req.requestId
         });
       }
       
@@ -174,10 +177,11 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
       try {
         data = await response.json();
       } catch (parseError: any) {
-        FocalPointLogger.error("YouTube_API_Parse", `JSON parse error: ${parseError.message}`);
+        FocalPointLogger.error("YouTube_API_Parse", `[${req.requestId}] JSON parse error: ${parseError.message}`);
         return res.json({ 
           valid: false, 
-          error: 'Failed to parse video data. Please try again.' 
+          error: 'Failed to parse video data. Please try again.',
+          requestId: req.requestId
         });
       }
       
@@ -185,7 +189,8 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
         return res.json({ 
           valid: false, 
           error: 'This video is private or does not exist. Please use a public YouTube video.',
-          privacyStatus: 'private_or_not_found'
+          privacyStatus: 'private_or_not_found',
+          requestId: req.requestId
         });
       }
       
@@ -201,24 +206,28 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
           title,
           author,
           privacyStatus: 'public',
-          embeddable
+          embeddable,
+          requestId: req.requestId
         });
       } else if (privacyStatus === 'unlisted') {
         return res.json({ 
           valid: false, 
           error: 'This video is unlisted. Please use a public YouTube video for analysis.',
-          privacyStatus: 'unlisted'
+          privacyStatus: 'unlisted',
+          requestId: req.requestId
         });
       } else if (privacyStatus === 'private') {
         return res.json({ 
           valid: false, 
           error: 'This video is private. Please use a public YouTube video.',
-          privacyStatus: 'private'
+          privacyStatus: 'private',
+          requestId: req.requestId
         });
       } else {
         return res.json({ 
           valid: false, 
-          error: 'Unable to determine video accessibility.' 
+          error: 'Unable to determine video accessibility.',
+          requestId: req.requestId
         });
       }
     } else {
@@ -226,12 +235,13 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
       
       let response: Response;
       try {
-        response = await fetch(oembedUrl);
+        response = await fetchWithTrace(req.requestId, oembedUrl, { timeout: 10000 });
       } catch (fetchError: any) {
-        FocalPointLogger.error("YouTube_oEmbed_Fetch", `Network error: ${fetchError.message || fetchError}`);
+        FocalPointLogger.error("YouTube_oEmbed_Fetch", `[${req.requestId}] Network error: ${fetchError.message || fetchError}`);
         return res.json({ 
           valid: false, 
-          error: 'Network error when verifying video. Please try again.' 
+          error: 'Network error when verifying video. Please try again.',
+          requestId: req.requestId
         });
       }
       
@@ -240,10 +250,11 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
         try {
           data = await response.json();
         } catch (parseError: any) {
-          FocalPointLogger.error("YouTube_oEmbed_Parse", `JSON parse error: ${parseError.message}`);
+          FocalPointLogger.error("YouTube_oEmbed_Parse", `[${req.requestId}] JSON parse error: ${parseError.message}`);
           return res.json({ 
             valid: false, 
-            error: 'Failed to parse video data. Please try again.' 
+            error: 'Failed to parse video data. Please try again.',
+            requestId: req.requestId
           });
         }
         return res.json({ 
@@ -251,30 +262,35 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
           title: data.title,
           author: data.author_name,
           embeddable: null,
-          warning: 'Could not verify if video is public or embeddable. Public videos work best.'
+          warning: 'Could not verify if video is public or embeddable. Public videos work best.',
+          requestId: req.requestId
         });
       } else if (response.status === 401 || response.status === 403) {
         return res.json({ 
           valid: false, 
-          error: 'This video is private. Please use a public YouTube video.' 
+          error: 'This video is private. Please use a public YouTube video.',
+          requestId: req.requestId 
         });
       } else if (response.status === 404) {
         return res.json({ 
           valid: false, 
-          error: 'Video not found. Please check the URL and try again.' 
+          error: 'Video not found. Please check the URL and try again.',
+          requestId: req.requestId
         });
       } else {
         return res.json({ 
           valid: false, 
-          error: 'Unable to verify video accessibility. Please try again.' 
+          error: 'Unable to verify video accessibility. Please try again.',
+          requestId: req.requestId
         });
       }
     }
   } catch (error: any) {
-    FocalPointLogger.error("YouTube_Validate", error.message);
+    FocalPointLogger.error("YouTube_Validate", `[${req.requestId}] ${error.message}`);
     return res.status(500).json({ 
       valid: false, 
-      error: 'Failed to validate YouTube URL. Please try again.' 
+      error: 'Failed to validate YouTube URL. Please try again.',
+      requestId: req.requestId
     });
   }
 });

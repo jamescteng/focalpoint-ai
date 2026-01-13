@@ -10,7 +10,7 @@ Not specified.
 FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communicating with an Express backend. The application is designed for asynchronous video processing, robust error handling, and a modular multi-persona analysis system.
 
 ### UI/UX Decisions
-- **Technology**: React, TypeScript, Tailwind CSS (via CDN) for styling.
+- **Technology**: React, TypeScript, Tailwind CSS (via PostCSS with @tailwindcss/postcss) for styling.
 - **Typography**: Inter + Noto Sans TC font stack for broad language support, especially CJK.
 - **Design Approach**: Focus on a responsive and intuitive interface for video uploads, persona selection, and report viewing.
 
@@ -19,6 +19,8 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - **Backend**: Express server on port 3001, binding to 0.0.0.0.
 - **API Proxy**: Vite proxies `/api` requests to the Express backend.
 - **Security**: API keys stored as secrets (`GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `ELEVENLABS_API_KEY`) and never exposed to the frontend.
+- **Correlation IDs**: All API requests include a UUID `X-Request-Id` header for end-to-end tracing. Frontend generates IDs via `client/api.ts`, backend propagates them via `server/middleware/requestId.ts`, and outbound calls are logged via `server/utils/fetchWithTrace.ts`. Error messages include truncated request IDs (e.g., "Ref: abc12345") for debugging.
+- **Error Serialization**: All errors are properly serialized using `serializeError()` to capture `name`, `message`, `stack`, and `cause` (no more `{}` in logs).
 - **Video Input** (Two Options):
     - **Option A - YouTube URL**: Paste a public YouTube URL directly. Gemini analyzes the video without upload/compression. Benefits: No upload time, no file size limits, no 48-hour expiration. Limitations: Video must be public, 8-hour daily processing limit.
     - **YouTube URL Validation**: Real-time validation using YouTube Data API v3 to check video privacy status. Unlisted and private videos are rejected with clear error messages before analysis begins. Falls back to oEmbed if API key is not configured.

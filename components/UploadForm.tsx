@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Project } from '../types';
 import { INITIAL_QUESTIONS, PERSONAS } from '../constants.tsx';
+import { apiPost, serializeError, type ApiError } from '../client/api';
 
 interface UploadFormProps {
   onStart: (project: Project) => void;
@@ -57,12 +58,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
 
     validationTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await fetch('/api/sessions/validate-youtube', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ youtubeUrl }),
-        });
-        const data = await response.json();
+        const { data, requestId } = await apiPost<{ valid: boolean; title?: string; author?: string; embeddable?: boolean; error?: string; requestId?: string }>('/api/sessions/validate-youtube', { youtubeUrl });
         
         if (data.valid) {
           setYoutubeValidation({
@@ -80,11 +76,14 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           setYoutubeError(data.error || 'This video cannot be accessed');
         }
       } catch (error) {
+        const apiError = error as ApiError;
+        console.error('[UploadForm] YouTube validation failed:', serializeError(apiError));
+        const errorMsg = `Failed to verify video. Please try again. (Ref: ${apiError.requestId?.slice(0, 8) || 'unknown'})`;
         setYoutubeValidation({
           status: 'invalid',
-          error: 'Failed to verify video. Please try again.',
+          error: errorMsg,
         });
-        setYoutubeError('Failed to verify video. Please try again.');
+        setYoutubeError(errorMsg);
       }
     }, 500);
 
