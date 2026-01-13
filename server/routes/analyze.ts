@@ -28,8 +28,9 @@ interface AnalyzeRequest {
   srtContent: string;
   questions: string[];
   language: 'en' | 'zh-TW';
-  fileUri: string;
-  fileMimeType: string;
+  fileUri?: string;
+  fileMimeType?: string;
+  youtubeUrl?: string;
   personaIds: string[];
 }
 
@@ -42,8 +43,9 @@ async function analyzeWithPersona(
     srtContent: string;
     questions: string[];
     langName: string;
-    fileUri: string;
-    fileMimeType: string;
+    fileUri?: string;
+    fileMimeType?: string;
+    youtubeUrl?: string;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[] }> {
   const modelName = "gemini-3-pro-preview";
@@ -58,13 +60,23 @@ async function analyzeWithPersona(
       langName: params.langName
     });
 
-    FocalPointLogger.info("API_Call", { model: modelName, persona: persona.id, fileUri: params.fileUri });
+    const videoSource = params.youtubeUrl || params.fileUri;
+    FocalPointLogger.info("API_Call", { 
+      model: modelName, 
+      persona: persona.id, 
+      fileUri: params.fileUri,
+      youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined
+    });
+
+    const videoPart = params.youtubeUrl
+      ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
+      : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
 
     const response = await ai.models.generateContent({
       model: modelName,
       contents: {
         parts: [
-          createPartFromUri(params.fileUri, params.fileMimeType || 'video/mp4'),
+          videoPart,
           { text: userPrompt }
         ]
       },
@@ -173,9 +185,15 @@ async function analyzeWithPersona(
   }
 }
 
+const YOUTUBE_URL_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
+
+function isValidYoutubeUrl(url: string): boolean {
+  return YOUTUBE_URL_REGEX.test(url);
+}
+
 router.post('/', analyzeLimiter, async (req, res) => {
   try {
-    const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType, personaIds } = req.body as AnalyzeRequest;
+    const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType, youtubeUrl, personaIds } = req.body as AnalyzeRequest;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: "Title is required." });
@@ -210,10 +228,18 @@ router.post('/', analyzeLimiter, async (req, res) => {
       return res.status(400).json({ error: "Invalid language. Supported: en, zh-TW." });
     }
 
-    if (!fileUri) {
-      return res.status(400).json({ error: "Video file URI is required. Please upload a video first." });
+    const hasYoutube = youtubeUrl && isValidYoutubeUrl(youtubeUrl);
+    const hasFileUri = fileUri && fileUri.startsWith('https://generativelanguage.googleapis.com/');
+
+    if (!hasYoutube && !hasFileUri) {
+      return res.status(400).json({ error: "Video source required. Please upload a video or provide a YouTube URL." });
     }
-    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
+
+    if (youtubeUrl && !hasYoutube) {
+      return res.status(400).json({ error: "Invalid YouTube URL format." });
+    }
+
+    if (fileUri && !hasFileUri) {
       FocalPointLogger.warn("Validation", `Suspicious fileUri: ${fileUri.substring(0, 50)}`);
       return res.status(400).json({ error: "Invalid file URI format." });
     }
@@ -236,7 +262,11 @@ router.post('/', analyzeLimiter, async (req, res) => {
     const ai = getAI();
     const langName = language === 'zh-TW' ? 'Traditional Chinese (Taiwan)' : 'English';
 
-    FocalPointLogger.info("Analysis_Start", { personas: personas.map(p => p.id), fileUri });
+    FocalPointLogger.info("Analysis_Start", { 
+      personas: personas.map(p => p.id), 
+      fileUri: hasFileUri ? fileUri : undefined,
+      youtubeUrl: hasYoutube ? '[YouTube]' : undefined
+    });
 
     const results = await Promise.all(
       personas.map(persona => 
@@ -246,8 +276,9 @@ router.post('/', analyzeLimiter, async (req, res) => {
           srtContent,
           questions,
           langName,
-          fileUri,
-          fileMimeType
+          fileUri: hasFileUri ? fileUri : undefined,
+          fileMimeType: hasFileUri ? fileMimeType : undefined,
+          youtubeUrl: hasYoutube ? youtubeUrl : undefined
         })
       )
     );

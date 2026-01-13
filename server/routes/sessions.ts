@@ -11,12 +11,27 @@ import {
 
 const router = Router();
 
+const YOUTUBE_URL_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
+
+function isValidYoutubeUrl(url: string): boolean {
+  return YOUTUBE_URL_REGEX.test(url);
+}
+
+function extractYoutubeVideoId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
 router.post('/', statusLimiter, async (req, res) => {
   try {
-    const { title, synopsis, questions, language, fileUri, fileMimeType, fileName } = req.body;
+    const { title, synopsis, questions, language, fileUri, fileMimeType, fileName, youtubeUrl } = req.body;
     
     if (!title || typeof title !== 'string' || title.length > MAX_TITLE_LENGTH) {
       return res.status(400).json({ error: 'Invalid title.' });
+    }
+    
+    if (youtubeUrl && !isValidYoutubeUrl(youtubeUrl)) {
+      return res.status(400).json({ error: 'Invalid YouTube URL format.' });
     }
     
     const personaAliases = generatePersonaAliases();
@@ -29,10 +44,11 @@ router.post('/', statusLimiter, async (req, res) => {
       fileUri: fileUri || null,
       fileMimeType: fileMimeType || null,
       fileName: fileName || null,
+      youtubeUrl: youtubeUrl || null,
       personaAliases,
     });
     
-    FocalPointLogger.info("Session_Created", { sessionId: session.id });
+    FocalPointLogger.info("Session_Created", { sessionId: session.id, isYoutube: !!youtubeUrl });
     res.json(session);
   } catch (error: any) {
     FocalPointLogger.error("Session_Create", error.message);

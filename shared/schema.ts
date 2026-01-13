@@ -18,6 +18,7 @@ export const sessions = pgTable("sessions", {
   fileName: text("file_name"),
   fileSize: bigint("file_size", { mode: "number" }),
   fileLastModified: bigint("file_last_modified", { mode: "number" }),
+  youtubeUrl: text("youtube_url"),
   personaAliases: jsonb("persona_aliases").$type<PersonaAlias[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
