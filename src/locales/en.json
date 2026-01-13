@@ -79,6 +79,7 @@
     "addReviewer": "Add Reviewer",
     "analyzing": "Analyzing...",
     "newScreening": "New Screening",
+    "noReportsYet": "No reports available for this session.",
     "reportsGenerated": "{{count}} Report(s) Generated",
     "availableReviewers": "Available Reviewers",
     "executiveSummary": "Executive Summary",

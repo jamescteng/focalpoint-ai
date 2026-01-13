@@ -251,6 +251,13 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   };
 
   useEffect(() => {
+    setDialogueResult(null);
+    setDialogueStatus('idle');
+    setDialogueJobId(null);
+    setDialoguePair(null);
+    setDialogueError(null);
+    setActiveReportIndex(0);
+    
     if (!sessionId) return;
     
     const fetchExistingDialogue = async () => {
@@ -307,7 +314,21 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const completedPersonaIds = reports.map(r => r.personaId);
 
   if (!activeReport || !activePersona) {
-    return <div className="p-24 text-center text-slate-400 text-xl">Analysis session could not be retrieved.</div>;
+    console.warn('[ScreeningRoom] Invalid state:', { 
+      reportsLength: reports.length, 
+      activeReportIndex, 
+      activeReport: !!activeReport,
+      activePersona: !!activePersona,
+      sessionId 
+    });
+    return (
+      <div className="p-24 text-center">
+        <p className="text-slate-400 text-xl mb-4">{t('screeningRoom.noReportsYet')}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          {t('screeningRoom.newScreening')}
+        </Button>
+      </div>
+    );
   }
 
   const contentTabs = [

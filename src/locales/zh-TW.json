@@ -79,6 +79,7 @@
     "addReviewer": "新增評論者",
     "analyzing": "分析中...",
     "newScreening": "新放映",
+    "noReportsYet": "此場次尚無報告。",
     "reportsGenerated": "已生成 {{count}} 份報告",
     "availableReviewers": "可選評論者",
     "executiveSummary": "執行摘要",
