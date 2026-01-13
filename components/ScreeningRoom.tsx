@@ -31,17 +31,19 @@ interface ScreeningRoomProps {
 }
 
 
-const verifyFingerprint = (file: File, fingerprint: VideoFingerprint): { match: boolean; issues: string[] } => {
-  const issues: string[] = [];
+type FingerprintIssue = { key: string; params?: Record<string, string> };
+
+const verifyFingerprint = (file: File, fingerprint: VideoFingerprint): { match: boolean; issues: FingerprintIssue[] } => {
+  const issues: FingerprintIssue[] = [];
   
   if (file.name !== fingerprint.fileName) {
-    issues.push(`File name differs: expected "${fingerprint.fileName}", got "${file.name}"`);
+    issues.push({ key: 'screeningRoom.fileNameDiffers', params: { expected: fingerprint.fileName, got: file.name } });
   }
   if (file.size !== fingerprint.fileSize) {
-    issues.push(`File size differs: expected ${formatSize(fingerprint.fileSize)}, got ${formatSize(file.size)}`);
+    issues.push({ key: 'screeningRoom.fileSizeDiffers', params: { expected: formatSize(fingerprint.fileSize), got: formatSize(file.size) } });
   }
   if (file.lastModified !== fingerprint.lastModified) {
-    issues.push(`Last modified date differs`);
+    issues.push({ key: 'screeningRoom.lastModifiedDiffers' });
   }
   
   return { match: issues.length === 0, issues };
@@ -66,7 +68,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const [activeReportIndex, setActiveReportIndex] = useState(0);
   const [showAddPersona, setShowAddPersona] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<'profile' | 'goals'>('profile');
-  const [fingerprintWarning, setFingerprintWarning] = useState<{ file: File; issues: string[] } | null>(null);
+  const [fingerprintWarning, setFingerprintWarning] = useState<{ file: File; issues: FingerprintIssue[] } | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [pendingSeek, setPendingSeek] = useState<number | null>(null);
   
@@ -322,12 +324,12 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
           <div className="flex items-center gap-2 mt-1">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
             <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-              {reports.length} Report{reports.length > 1 ? 's' : ''} Generated
+              {t('screeningRoom.reportsGenerated', { count: reports.length })}
             </p>
           </div>
         </div>
         <Button variant="outline" size="md" className="rounded-lg px-5 border-slate-200" onClick={() => window.location.reload()}>
-          New Screening
+          {t('screeningRoom.newScreening')}
         </Button>
       </header>
 
@@ -386,7 +388,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
           <div className="relative mt-3">
             <Card variant="elevated" className="absolute left-0 top-0 p-2 z-[100] min-w-[300px]">
               <div className="px-3 py-2 mb-1 border-b border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Reviewers</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('screeningRoom.availableReviewers')}</p>
               </div>
               <div className="space-y-1">
                 {availablePersonas.map(persona => (
@@ -478,14 +480,14 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Video Not Attached</h3>
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">{t('screeningRoom.noVideoAvailable')}</h3>
                 {project.videoFingerprint ? (
                   <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
-                    This screening was created from: <span className="font-medium text-slate-700">{project.videoFingerprint.fileName}</span> ({formatSize(project.videoFingerprint.fileSize)})
+                    {t('screeningRoom.expectedFile', { fileName: project.videoFingerprint.fileName, fileSize: formatSize(project.videoFingerprint.fileSize) })}
                   </p>
                 ) : (
                   <p className="text-sm text-slate-500 text-center mb-4 max-w-md">
-                    To play the video and add more reviewers, please reattach the local file.
+                    {t('screeningRoom.reattachDescription')}
                   </p>
                 )}
                 <button
@@ -495,7 +497,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
-                  Attach Local File
+                  {t('screeningRoom.selectFile')}
                 </button>
               </div>
             )}
@@ -510,8 +512,8 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 mb-1">File Mismatch Detected</h3>
-                      <p className="text-sm text-slate-600">This doesn't appear to be the same file used in the original screening.</p>
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">{t('screeningRoom.fileMismatch')}</h3>
+                      <p className="text-sm text-slate-600">{t('screeningRoom.fileMismatchDescription')}</p>
                     </div>
                   </div>
                   
@@ -520,7 +522,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                       {fingerprintWarning.issues.map((issue, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="text-amber-500 mt-0.5">•</span>
-                          {issue}
+                          {t(issue.key, issue.params)}
                         </li>
                       ))}
                     </ul>
@@ -531,13 +533,13 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                       onClick={() => setFingerprintWarning(null)}
                       className="flex-1 px-4 py-3 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors"
                     >
-                      Choose Different File
+                      {t('screeningRoom.cancel')}
                     </button>
                     <button
                       onClick={handleConfirmMismatchedFile}
                       className="flex-1 px-4 py-3 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors"
                     >
-                      Use Anyway
+                      {t('screeningRoom.proceedAnyway')}
                     </button>
                   </div>
                 </div>
