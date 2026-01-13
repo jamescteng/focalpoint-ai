@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "FocalPoint"
+  },
+  "nav": {
+    "history": "History",
+    "new": "+ New"
+  },
+  "uploadForm": {
+    "title": "A private space to think through your film",
+    "subtitle": "Explore how different viewing perspectives might experience your work.",
+    "workingTitle": "Working Title",
+    "titlePlaceholder": "Enter your film title...",
+    "reportLanguage": "Report language:",
+    "videoSource": "Video Source",
+    "upload": "Upload",
+    "youtube": "YouTube",
+    "fileSelected": "File Selected",
+    "chooseFile": "Choose file",
+    "videoUpTo2GB": "Video up to 2GB",
+    "synopsis": "Synopsis",
+    "synopsisPlaceholder": "Briefly describe your story and what you're hoping to learn from reviewers...",
+    "chooseReviewer": "Choose Reviewer",
+    "chooseReviewerHint": "Select a perspective. You can add more reviewers after seeing your first report.",
+    "yourQuestions": "Your Questions",
+    "addQuestion": "+ Add question",
+    "questionPlaceholder": "What would you like to know?",
+    "startReview": "Start Review",
+    "startingReview": "Starting Review...",
+    "checkingVideo": "Checking video accessibility...",
+    "videoFound": "Video found",
+    "publicVideosWork": "Public videos work best for analysis",
+    "pasteYoutubeUrl": "Paste a public YouTube video URL",
+    "invalidYoutubeUrl": "Please enter a valid YouTube URL",
+    "verifyFailed": "Failed to verify video. Please try again."
+  },
+  "personas": {
+    "acquisitions_director": {
+      "role": "Senior Acquisitions Director",
+      "description": "A sharp, no-nonsense executive looking for commercial viability and emotional \"stickiness\".",
+      "focusAreas": ["Commercial viability", "Pacing", "Marketability"]
+    },
+    "cultural_editor": {
+      "role": "Cultural Editor",
+      "description": "A culturally literate young editor who shapes taste and conversation at a major publication.",
+      "focusAreas": ["Cultural relevance", "Authorship", "Emotional resonance"]
+    },
+    "mass_audience_viewer": {
+      "role": "Mass Audience Viewer",
+      "description": "A regular streaming viewer who watches for entertainment. Will stop watching if confused or bored.",
+      "focusAreas": ["Clarity", "Engagement", "Drop-off risk"]
+    },
+    "social_impact_viewer": {
+      "role": "Social Impact Viewer",
+      "description": "A purpose-driven viewer who seeks films dealing with social, political, or cultural issues.",
+      "focusAreas": ["Message clarity", "Ethical storytelling", "Trust"]
+    }
+  },
+  "screeningRoom": {
+    "summary": "Summary",
+    "highlights": "Highlights",
+    "concerns": "Concerns",
+    "profile": "Profile",
+    "goals": "Research Goals",
+    "addReviewer": "Add Reviewer",
+    "analyzing": "Analyzing...",
+    "executiveSummary": "Executive Summary",
+    "yourQuestions": "Your Questions",
+    "noQuestionsAsked": "No questions were asked for this session.",
+    "voiceNote": "Voice Note",
+    "podcastDialogue": "Podcast Dialogue",
+    "generateVoiceNote": "Generate Voice Note",
+    "regenerate": "Regenerate",
+    "generating": "Generating...",
+    "listenToVoiceNote": "Listen to {{name}}'s voice note",
+    "noVideoAvailable": "No video available for playback",
+    "reattachVideo": "Reattach Video",
+    "reattachDescription": "To enable video playback, please select the original video file:",
+    "selectFile": "Select File",
+    "expectedFile": "Expected: {{fileName}} ({{fileSize}})",
+    "fileMismatch": "File Mismatch Warning",
+    "fileMismatchDescription": "The selected file doesn't match the original:",
+    "proceedAnyway": "Proceed Anyway",
+    "cancel": "Cancel",
+    "by": "by",
+    "severity": "Severity",
+    "suggestedFix": "Suggested Fix",
+    "timestamp": "Timestamp"
+  },
+  "dialogue": {
+    "title": "Podcast Dialogue",
+    "selectReviewers": "Select two reviewers for a conversation",
+    "englishOnly": "English Only",
+    "englishOnlyDescription": "Podcast dialogues are currently only available in English due to voice synthesis limitations.",
+    "generate": "Generate Dialogue",
+    "generating": "Generating dialogue...",
+    "regenerate": "Regenerate",
+    "needTwoReports": "You need at least two reviewer reports to generate a dialogue.",
+    "error": "Failed to generate dialogue"
+  },
+  "sessions": {
+    "previousSessions": "Previous Sessions",
+    "loading": "Loading...",
+    "noSessions": "No sessions yet",
+    "deleteConfirm": "Delete this session and all its reports?"
+  },
+  "processing": {
+    "uploadingVideo": "Uploading video... Please do not refresh the page.",
+    "videoProcessed": "Video uploaded and processed",
+    "preparingYoutube": "Preparing to analyze YouTube video...",
+    "runningAppraisal": "Running deep appraisal with {{persona}}...",
+    "analyzingWith": "Analyzing with {{persona}}..."
+  },
+  "errors": {
+    "failedToLoad": "Failed to load session. Please try again.",
+    "failedToDelete": "Failed to delete session.",
+    "uploadFailed": "Failed to upload video file.",
+    "videoRequired": "Video file is required for analysis.",
+    "analysisError": "The appraisal engine encountered a technical fault.",
+    "additionalReportFailed": "Failed to generate additional report."
+  },
+  "common": {
+    "english": "English",
+    "traditionalChinese": "繁體中文",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "close": "Close"
+  }
+}

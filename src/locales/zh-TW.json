@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "FocalPoint"
+  },
+  "nav": {
+    "history": "歷史紀錄",
+    "new": "+ 新增"
+  },
+  "uploadForm": {
+    "title": "一個私密空間，讓你思考你的影片",
+    "subtitle": "探索不同觀影角度如何體驗你的作品。",
+    "workingTitle": "暫定標題",
+    "titlePlaceholder": "輸入你的影片標題...",
+    "reportLanguage": "報告語言：",
+    "videoSource": "影片來源",
+    "upload": "上傳",
+    "youtube": "YouTube",
+    "fileSelected": "已選擇檔案",
+    "chooseFile": "選擇檔案",
+    "videoUpTo2GB": "影片最大 2GB",
+    "synopsis": "劇情簡介",
+    "synopsisPlaceholder": "簡短描述你的故事，以及你希望從評論者那裡了解什麼...",
+    "chooseReviewer": "選擇評論者",
+    "chooseReviewerHint": "選擇一個觀點。看完第一份報告後，你可以加入更多評論者。",
+    "yourQuestions": "你的問題",
+    "addQuestion": "+ 新增問題",
+    "questionPlaceholder": "你想了解什麼？",
+    "startReview": "開始評論",
+    "startingReview": "正在開始評論...",
+    "checkingVideo": "正在檢查影片可用性...",
+    "videoFound": "已找到影片",
+    "publicVideosWork": "公開影片的分析效果最佳",
+    "pasteYoutubeUrl": "貼上公開的 YouTube 影片網址",
+    "invalidYoutubeUrl": "請輸入有效的 YouTube 網址",
+    "verifyFailed": "無法驗證影片，請重試。"
+  },
+  "personas": {
+    "acquisitions_director": {
+      "role": "資深發行總監",
+      "description": "一位精明、直接的主管，尋找具有商業潛力和情感「黏著度」的作品。",
+      "focusAreas": ["商業潛力", "節奏", "市場性"]
+    },
+    "cultural_editor": {
+      "role": "文化編輯",
+      "description": "一位具有文化素養的年輕編輯，在主流媒體塑造品味與話題。",
+      "focusAreas": ["文化相關性", "作者風格", "情感共鳴"]
+    },
+    "mass_audience_viewer": {
+      "role": "大眾觀眾",
+      "description": "一般串流觀眾，以娛樂為目的觀看。如果感到困惑或無聊，會停止觀看。",
+      "focusAreas": ["清晰度", "投入感", "流失風險"]
+    },
+    "social_impact_viewer": {
+      "role": "社會影響觀眾",
+      "description": "尋求處理社會、政治或文化議題影片的目的導向觀眾。",
+      "focusAreas": ["訊息清晰度", "道德敘事", "信任感"]
+    }
+  },
+  "screeningRoom": {
+    "summary": "摘要",
+    "highlights": "亮點",
+    "concerns": "問題",
+    "profile": "個人檔案",
+    "goals": "研究目標",
+    "addReviewer": "新增評論者",
+    "analyzing": "分析中...",
+    "executiveSummary": "執行摘要",
+    "yourQuestions": "你的問題",
+    "noQuestionsAsked": "此次沒有提出任何問題。",
+    "voiceNote": "語音筆記",
+    "podcastDialogue": "播客對話",
+    "generateVoiceNote": "生成語音筆記",
+    "regenerate": "重新生成",
+    "generating": "生成中...",
+    "listenToVoiceNote": "聆聽 {{name}} 的語音筆記",
+    "noVideoAvailable": "沒有可播放的影片",
+    "reattachVideo": "重新附加影片",
+    "reattachDescription": "若要啟用影片播放，請選擇原始影片檔案：",
+    "selectFile": "選擇檔案",
+    "expectedFile": "預期：{{fileName}}（{{fileSize}}）",
+    "fileMismatch": "檔案不符警告",
+    "fileMismatchDescription": "選擇的檔案與原始檔案不符：",
+    "proceedAnyway": "仍然繼續",
+    "cancel": "取消",
+    "by": "由",
+    "severity": "嚴重程度",
+    "suggestedFix": "建議修正",
+    "timestamp": "時間戳"
+  },
+  "dialogue": {
+    "title": "播客對話",
+    "selectReviewers": "選擇兩位評論者進行對話",
+    "englishOnly": "僅限英文",
+    "englishOnlyDescription": "由於語音合成限制，播客對話目前僅支援英文。",
+    "generate": "生成對話",
+    "generating": "正在生成對話...",
+    "regenerate": "重新生成",
+    "needTwoReports": "你需要至少兩份評論者報告才能生成對話。",
+    "error": "生成對話失敗"
+  },
+  "sessions": {
+    "previousSessions": "先前的作業",
+    "loading": "載入中...",
+    "noSessions": "尚無作業",
+    "deleteConfirm": "刪除此作業及其所有報告？"
+  },
+  "processing": {
+    "uploadingVideo": "上傳影片中...請勿重新整理頁面。",
+    "videoProcessed": "影片已上傳並處理完成",
+    "preparingYoutube": "準備分析 YouTube 影片...",
+    "runningAppraisal": "正在執行深度評估：{{persona}}...",
+    "analyzingWith": "正在分析：{{persona}}..."
+  },
+  "errors": {
+    "failedToLoad": "載入作業失敗，請重試。",
+    "failedToDelete": "刪除作業失敗。",
+    "uploadFailed": "上傳影片檔案失敗。",
+    "videoRequired": "分析需要影片檔案。",
+    "analysisError": "評估引擎發生技術故障。",
+    "additionalReportFailed": "生成額外報告失敗。"
+  },
+  "common": {
+    "english": "English",
+    "traditionalChinese": "繁體中文",
+    "loading": "載入中...",
+    "error": "錯誤",
+    "retry": "重試",
+    "close": "關閉"
+  }
+}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppState, Project, AgentReport } from './types';
 import { PERSONAS } from './constants.tsx';
 import { UploadForm } from './components/UploadForm';
 import { ProcessingQueue } from './components/ProcessingQueue';
 import { ScreeningRoom } from './components/ScreeningRoom';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { 
   analyzeWithPersona, 
   uploadVideo, 
@@ -34,6 +36,7 @@ function dbReportToAgentReport(dbReport: DbReport): AgentReport {
 }
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [state, setState] = useState<AppState>(AppState.IDLE);
   const [project, setProject] = useState<Project | null>(null);
   const [reports, setReports] = useState<AgentReport[]>([]);
@@ -110,13 +113,13 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load session:', err);
-      setErrorMessage('Failed to load session. Please try again.');
+      setErrorMessage(t('errors.failedToLoad'));
     }
   };
 
   const handleDeleteSession = async (sessionId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Delete this session and all its reports?')) return;
+    if (!confirm(t('sessions.deleteConfirm'))) return;
     
     try {
       await deleteSession(sessionId);
@@ -130,7 +133,7 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to delete session:', err);
-      alert('Failed to delete session.');
+      alert(t('errors.failedToDelete'));
     }
   };
 
@@ -177,10 +180,10 @@ const App: React.FC = () => {
     
     if (isYoutubeSession) {
       setProcessProgress(50);
-      setStatusMessage(isZH ? "準備分析YouTube視頻..." : "Preparing to analyze YouTube video...");
+      setStatusMessage(t('processing.preparingYoutube'));
     } else if (p.videoFile) {
       try {
-        setStatusMessage(isZH ? "上傳視頻中... 請勿重新整理頁面" : "Uploading video... Please do not refresh the page.");
+        setStatusMessage(t('processing.uploadingVideo'));
         currentUploadResult = await uploadVideo(
           p.videoFile, 
           (progress) => {
@@ -192,7 +195,7 @@ const App: React.FC = () => {
           }
         );
         setUploadResult(currentUploadResult);
-        setStatusMessage(isZH ? "視頻處理完成" : "Video uploaded and processed");
+        setStatusMessage(t('processing.videoProcessed'));
         
         if (sessionId) {
           try {
@@ -208,7 +211,7 @@ const App: React.FC = () => {
           }
         }
       } catch (e: any) {
-        setErrorMessage(e.message || "Failed to upload video file.");
+        setErrorMessage(e.message || t('errors.uploadFailed'));
         setState(AppState.IDLE);
         uploadLockRef.current = false;
         setIsSubmitting(false);
@@ -217,7 +220,7 @@ const App: React.FC = () => {
     }
 
     if (!isYoutubeSession && !currentUploadResult) {
-      setErrorMessage("Video file is required for analysis.");
+      setErrorMessage(t('errors.videoRequired'));
       setState(AppState.IDLE);
       uploadLockRef.current = false;
       setIsSubmitting(false);
@@ -228,11 +231,7 @@ const App: React.FC = () => {
     const persona = PERSONAS.find(per => per.id === personaId);
     
     setAnalyzingPersonaId(personaId);
-    setStatusMessage(
-      isZH 
-        ? `正在執行深度分析: ${persona?.name || personaId}...` 
-        : `Running deep appraisal with ${persona?.name || personaId}...`
-    );
+    setStatusMessage(t('processing.runningAppraisal', { persona: persona?.name || personaId }));
     setProcessProgress(60);
     
     try {
@@ -252,7 +251,7 @@ const App: React.FC = () => {
       setTimeout(() => setState(AppState.VIEWING), 600);
     } catch (err: any) {
       console.error("[FocalPoint] Pipeline Error:", err);
-      setErrorMessage(err.message || "The appraisal engine encountered a technical fault.");
+      setErrorMessage(err.message || t('errors.analysisError'));
       setAnalyzingPersonaId(null);
       setState(AppState.IDLE);
     } finally {
@@ -265,15 +264,10 @@ const App: React.FC = () => {
     if (!project || !uploadResult) return;
     if (reports.some(r => r.personaId === personaId)) return;
 
-    const isZH = project.language === 'zh-TW';
     const persona = PERSONAS.find(p => p.id === personaId);
     
     setAnalyzingPersonaId(personaId);
-    setStatusMessage(
-      isZH 
-        ? `正在分析: ${persona?.name || personaId}...` 
-        : `Analyzing with ${persona?.name || personaId}...`
-    );
+    setStatusMessage(t('processing.analyzingWith', { persona: persona?.name || personaId }));
 
     try {
       const report = await analyzeWithPersona(project, uploadResult, personaId);
@@ -292,7 +286,7 @@ const App: React.FC = () => {
       console.error("[FocalPoint] Additional Persona Error:", err);
       setAnalyzingPersonaId(null);
       setStatusMessage('');
-      alert(err.message || "Failed to generate additional report.");
+      alert(err.message || t('errors.additionalReportFailed'));
     }
   };
 
@@ -339,18 +333,21 @@ const App: React.FC = () => {
           <span className="text-3xl tracking-tight font-bold">FocalPoint</span>
         </div>
         
-        {sessions.length > 0 && (
-          <button
-            onClick={() => setShowSessionList(!showSessionList)}
-            className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors shadow-sm"
-          >
-            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm font-medium text-slate-700">History</span>
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sessions.length}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          {sessions.length > 0 && (
+            <button
+              onClick={() => setShowSessionList(!showSessionList)}
+              className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors shadow-sm"
+            >
+              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-slate-700">{t('nav.history')}</span>
+              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sessions.length}</span>
+            </button>
+          )}
+        </div>
       </nav>
 
       {showSessionList && (
@@ -360,19 +357,19 @@ const App: React.FC = () => {
             onClick={e => e.stopPropagation()}
           >
             <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-semibold text-slate-900">Previous Sessions</h3>
+              <h3 className="font-semibold text-slate-900">{t('sessions.previousSessions')}</h3>
               <button
                 onClick={startNewSession}
                 className="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
               >
-                + New
+                {t('nav.new')}
               </button>
             </div>
             <div className="overflow-y-auto max-h-[calc(70vh-60px)]">
               {loadingSessions ? (
-                <div className="p-8 text-center text-slate-400">Loading...</div>
+                <div className="p-8 text-center text-slate-400">{t('sessions.loading')}</div>
               ) : sessions.length === 0 ? (
-                <div className="p-8 text-center text-slate-400">No sessions yet</div>
+                <div className="p-8 text-center text-slate-400">{t('sessions.noSessions')}</div>
               ) : (
                 sessions.map(session => (
                   <div
