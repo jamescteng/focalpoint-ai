@@ -140,32 +140,94 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
       return res.status(400).json({ valid: false, error: 'Invalid YouTube URL format.' });
     }
     
-    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`;
+    const videoId = extractYoutubeVideoId(youtubeUrl);
+    if (!videoId) {
+      return res.status(400).json({ valid: false, error: 'Could not extract video ID from URL.' });
+    }
     
-    const response = await fetch(oembedUrl);
+    const youtubeApiKey = process.env.YOUTUBE_API_KEY;
     
-    if (response.ok) {
+    if (youtubeApiKey) {
+      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,status&id=${videoId}&key=${youtubeApiKey}`;
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        FocalPointLogger.warn("YouTube_API", `API returned ${response.status}`);
+        return res.json({ 
+          valid: false, 
+          error: 'Unable to verify video. Please try again.' 
+        });
+      }
+      
       const data = await response.json();
-      return res.json({ 
-        valid: true, 
-        title: data.title,
-        author: data.author_name
-      });
-    } else if (response.status === 401 || response.status === 403) {
-      return res.json({ 
-        valid: false, 
-        error: 'This video is private or unlisted. Please use a public YouTube video.' 
-      });
-    } else if (response.status === 404) {
-      return res.json({ 
-        valid: false, 
-        error: 'Video not found. Please check the URL and try again.' 
-      });
+      
+      if (!data.items || data.items.length === 0) {
+        return res.json({ 
+          valid: false, 
+          error: 'This video is private or does not exist. Please use a public YouTube video.',
+          privacyStatus: 'private_or_not_found'
+        });
+      }
+      
+      const video = data.items[0];
+      const privacyStatus = video.status?.privacyStatus;
+      const title = video.snippet?.title;
+      const author = video.snippet?.channelTitle;
+      
+      if (privacyStatus === 'public') {
+        return res.json({ 
+          valid: true, 
+          title,
+          author,
+          privacyStatus: 'public'
+        });
+      } else if (privacyStatus === 'unlisted') {
+        return res.json({ 
+          valid: false, 
+          error: 'This video is unlisted. Please use a public YouTube video for analysis.',
+          privacyStatus: 'unlisted'
+        });
+      } else if (privacyStatus === 'private') {
+        return res.json({ 
+          valid: false, 
+          error: 'This video is private. Please use a public YouTube video.',
+          privacyStatus: 'private'
+        });
+      } else {
+        return res.json({ 
+          valid: false, 
+          error: 'Unable to determine video accessibility.' 
+        });
+      }
     } else {
-      return res.json({ 
-        valid: false, 
-        error: 'Unable to verify video accessibility. Please try again.' 
-      });
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`;
+      const response = await fetch(oembedUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return res.json({ 
+          valid: true, 
+          title: data.title,
+          author: data.author_name,
+          warning: 'Could not verify if video is public. Public videos work best.'
+        });
+      } else if (response.status === 401 || response.status === 403) {
+        return res.json({ 
+          valid: false, 
+          error: 'This video is private. Please use a public YouTube video.' 
+        });
+      } else if (response.status === 404) {
+        return res.json({ 
+          valid: false, 
+          error: 'Video not found. Please check the URL and try again.' 
+        });
+      } else {
+        return res.json({ 
+          valid: false, 
+          error: 'Unable to verify video accessibility. Please try again.' 
+        });
+      }
     }
   } catch (error: any) {
     FocalPointLogger.error("YouTube_Validate", error.message);
