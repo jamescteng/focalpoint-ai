@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button';
 import { Project } from '../types';
 import { INITIAL_QUESTIONS, PERSONAS } from '../constants.tsx';
@@ -32,6 +33,7 @@ interface YoutubeValidation {
 }
 
 export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = false }) => {
+  const { t, i18n } = useTranslation();
   const [title, setTitle] = useState('');
   const [synopsis, setSynopsis] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -39,10 +41,14 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeError, setYoutubeError] = useState('');
   const [youtubeValidation, setYoutubeValidation] = useState<YoutubeValidation>({ status: 'idle' });
-  const [language, setLanguage] = useState<'en' | 'zh-TW'>('en');
+  const [language, setLanguage] = useState<'en' | 'zh-TW'>((i18n.language === 'zh-TW' ? 'zh-TW' : 'en'));
   const [questions, setQuestions] = useState<string[]>(INITIAL_QUESTIONS);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('acquisitions_director');
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setLanguage(i18n.language === 'zh-TW' ? 'zh-TW' : 'en');
+  }, [i18n.language]);
 
   useEffect(() => {
     if (validationTimeoutRef.current) {
@@ -73,12 +79,12 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
             status: 'invalid',
             error: data.error,
           });
-          setYoutubeError(data.error || 'This video cannot be accessed');
+          setYoutubeError(data.error || t('uploadForm.verifyFailed'));
         }
       } catch (error) {
         const apiError = error as ApiError;
         console.error('[UploadForm] YouTube validation failed:', serializeError(apiError));
-        const errorMsg = `Failed to verify video. Please try again. (Ref: ${apiError.requestId?.slice(0, 8) || 'unknown'})`;
+        const errorMsg = `${t('uploadForm.verifyFailed')} (Ref: ${apiError.requestId?.slice(0, 8) || 'unknown'})`;
         setYoutubeValidation({
           status: 'invalid',
           error: errorMsg,
@@ -97,7 +103,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
   const handleYoutubeUrlChange = (url: string) => {
     setYoutubeUrl(url);
     if (url && !isValidYoutubeUrl(url)) {
-      setYoutubeError('Please enter a valid YouTube URL');
+      setYoutubeError(t('uploadForm.invalidYoutubeUrl'));
       setYoutubeValidation({ status: 'idle' });
     } else {
       setYoutubeError('');
@@ -157,12 +163,23 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
     setQuestions(questions.filter((_, i) => i !== idx));
   };
 
+  const getPersonaRole = (personaId: string): string => {
+    const key = `personas.${personaId}.role`;
+    return t(key);
+  };
+
+  const getPersonaFocusAreas = (personaId: string): string[] => {
+    const key = `personas.${personaId}.focusAreas`;
+    const areas = t(key, { returnObjects: true });
+    return Array.isArray(areas) ? areas : [];
+  };
+
   return (
     <div className="max-w-3xl mx-auto py-8 md:py-16 px-6">
       <div className="text-center mb-10 md:mb-14">
-        <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-3 tracking-tight">A private space to think through your film</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-3 tracking-tight">{t('uploadForm.title')}</h1>
         <p className="text-slate-500 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-          Explore how different viewing perspectives might experience your work.
+          {t('uploadForm.subtitle')}
         </p>
       </div>
 
@@ -172,25 +189,25 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">01</span>
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">Working Title</label>
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.workingTitle')}</label>
             </div>
             
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-slate-400 font-medium">Report language:</span>
+              <span className="text-[10px] text-slate-400 font-medium">{t('uploadForm.reportLanguage')}</span>
               <div className="flex p-0.5 bg-slate-100 rounded-lg">
                 <button
                   type="button"
                   onClick={() => setLanguage('en')}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${language === 'en' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >
-                  English
+                  {t('common.english')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setLanguage('zh-TW')}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${language === 'zh-TW' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >
-                  繁體中文
+                  {t('common.traditionalChinese')}
                 </button>
               </div>
             </div>
@@ -199,7 +216,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           <input
             required
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 text-xl md:text-2xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all font-medium text-slate-900 placeholder:text-slate-300"
-            placeholder="Enter your film title..."
+            placeholder={t('uploadForm.titlePlaceholder')}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -210,7 +227,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">02</span>
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">Video Source</label>
+                <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.videoSource')}</label>
               </div>
               <div className="flex p-0.5 bg-slate-100 rounded-lg">
                 <button
@@ -218,14 +235,14 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                   onClick={() => setVideoSourceType('upload')}
                   className={`px-3 py-1 text-[10px] font-semibold rounded-md transition-all ${videoSourceType === 'upload' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >
-                  Upload
+                  {t('uploadForm.upload')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setVideoSourceType('youtube')}
                   className={`px-3 py-1 text-[10px] font-semibold rounded-md transition-all ${videoSourceType === 'youtube' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >
-                  YouTube
+                  {t('uploadForm.youtube')}
                 </button>
               </div>
             </div>
@@ -248,7 +265,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                       <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center mb-3 mx-auto">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
                       </div>
-                      <p className="text-sm text-slate-900 font-semibold mb-0.5">File Selected</p>
+                      <p className="text-sm text-slate-900 font-semibold mb-0.5">{t('uploadForm.fileSelected')}</p>
                       <p className="text-xs text-slate-400 truncate max-w-[180px]">{(videoFile.size / (1024 * 1024)).toFixed(0)}MB - {videoFile.name}</p>
                     </div>
                   ) : (
@@ -256,8 +273,8 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                       <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center mb-3 mx-auto group-hover:scale-105 transition-transform">
                         <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                       </div>
-                      <span className="text-sm font-semibold text-slate-700 block mb-0.5">Choose file</span>
-                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Video up to 2GB</span>
+                      <span className="text-sm font-semibold text-slate-700 block mb-0.5">{t('uploadForm.chooseFile')}</span>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{t('uploadForm.videoUpTo2GB')}</span>
                     </div>
                   )}
                 </label>
@@ -299,25 +316,25 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                   {youtubeValidation.status === 'validating' ? (
                     <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
                       <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-pulse"></span>
-                      Checking video accessibility...
+                      {t('uploadForm.checkingVideo')}
                     </p>
                   ) : youtubeValidation.status === 'valid' ? (
                     <div className="text-center mt-2">
                       <p className="text-xs text-green-700 font-medium flex items-center justify-center gap-1">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                        Video found
+                        {t('uploadForm.videoFound')}
                       </p>
                       {youtubeValidation.title && (
                         <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[250px]">
-                          {youtubeValidation.title} {youtubeValidation.author && `by ${youtubeValidation.author}`}
+                          {youtubeValidation.title} {youtubeValidation.author && `${t('screeningRoom.by')} ${youtubeValidation.author}`}
                         </p>
                       )}
-                      <p className="text-[10px] text-slate-400 mt-1">Public videos work best for analysis</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{t('uploadForm.publicVideosWork')}</p>
                     </div>
                   ) : youtubeError ? (
                     <p className="text-xs text-red-600 mt-1 text-center">{youtubeError}</p>
                   ) : (
-                    <p className="text-[10px] text-slate-400 mt-1">Paste a public YouTube video URL</p>
+                    <p className="text-[10px] text-slate-400 mt-1">{t('uploadForm.pasteYoutubeUrl')}</p>
                   )}
                 </div>
               </div>
@@ -327,12 +344,12 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">03</span>
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">Synopsis</label>
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.synopsis')}</label>
             </div>
             <textarea
               required
               className="w-full h-48 bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none resize-none text-sm leading-relaxed text-slate-900 placeholder:text-slate-300"
-              placeholder="Briefly describe your story and what you're hoping to learn from reviewers..."
+              placeholder={t('uploadForm.synopsisPlaceholder')}
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
             />
@@ -342,9 +359,9 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">04</span>
-            <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">Choose Reviewer</label>
+            <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.chooseReviewer')}</label>
           </div>
-          <p className="text-slate-500 text-xs">Select a perspective. You can add more reviewers after seeing your first report.</p>
+          <p className="text-slate-500 text-xs">{t('uploadForm.chooseReviewerHint')}</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {PERSONAS.map((persona) => {
@@ -376,10 +393,10 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-medium">{persona.role}</p>
-                    {persona.focusAreas && (
+                    <p className="text-[11px] text-slate-500 font-medium">{getPersonaRole(persona.id)}</p>
+                    {getPersonaFocusAreas(persona.id).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {persona.focusAreas.map((area, idx) => (
+                        {getPersonaFocusAreas(persona.id).map((area, idx) => (
                           <span key={idx} className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
                             isSelected ? 'bg-slate-200 text-slate-600' : 'bg-slate-100 text-slate-500'
                           }`}>
@@ -399,10 +416,10 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">05</span>
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">Your Questions</label>
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.yourQuestions')}</label>
             </div>
             <button type="button" onClick={addQuestion} className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors">
-              + Add question
+              {t('uploadForm.addQuestion')}
             </button>
           </div>
           
@@ -411,7 +428,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
               <div key={i} className="flex gap-2 group">
                 <input
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-300"
-                  placeholder={`What would you like to know?`}
+                  placeholder={t('uploadForm.questionPlaceholder')}
                   value={q}
                   onChange={(e) => updateQuestion(i, e.target.value)}
                 />
@@ -431,7 +448,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           size="lg"
           disabled={!isFormValid()}
         >
-          {isSubmitting ? 'Starting Review...' : 'Start Review'}
+          {isSubmitting ? t('uploadForm.startingReview') : t('uploadForm.startReview')}
         </Button>
       </form>
     </div>
