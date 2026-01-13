@@ -19,20 +19,26 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - **Backend**: Express server on port 3001, binding to 0.0.0.0.
 - **API Proxy**: Vite proxies `/api` requests to the Express backend.
 - **Security**: Gemini API key stored as a secret (`GEMINI_API_KEY`) and never exposed to the frontend.
-- **Video Upload** (Direct-to-Storage with AI Proxy Architecture):
-    - **Four-Stage Flow**: Browser uploads to Object Storage, server compresses to 720p/10fps "analysis proxy", then transfers proxy to Gemini.
-    - **Stage 1 - Storage Upload** (0-40%): Frontend requests presigned PUT URL via `/api/uploads/init`, uploads directly via XMLHttpRequest.
-    - **Stage 2 - Compression** (40-75%): Server downloads original, compresses to 720p/10fps using FFmpeg (CRF 28, mono audio), stores proxy in Object Storage.
-    - **Stage 3 - Gemini Transfer** (75-95%): Server uploads compressed proxy to Gemini File API in 16MB chunks.
-    - **Stage 4 - Ready** (100%): Gemini processes file until ACTIVE state.
-    - **Benefits**: Dramatically faster Gemini transfers (50-100x smaller files), reduced API costs, original preserved for playback.
-    - **Status Polling**: Frontend polls `/api/uploads/status/:uploadId` for progress updates with exponential backoff.
-    - **Idempotency**: Same `attemptId` returns same `uploadId`/presigned URL for retry support.
-    - **Size Verification**: Server verifies uploaded file size matches declared size (hard failure on mismatch >1KB).
-    - **MIME Type Preservation**: Actual file MIME type flows through entire pipeline.
-    - **Presigned URL TTL**: 15 minutes for upload completion.
-    - **Database Tracking**: `uploads` table tracks state machine: UPLOADING → STORED → COMPRESSING → COMPRESSED → TRANSFERRING_TO_GEMINI → ACTIVE (or FAILED). Fields include `proxyStorageKey` and `proxySizeBytes` for the compressed proxy.
-    - Maximum video size: 2GB.
+- **Video Input** (Two Options):
+    - **Option A - YouTube URL**: Paste a public YouTube URL directly. Gemini analyzes the video without upload/compression. Benefits: No upload time, no file size limits, no 48-hour expiration. Limitations: Video must be public, 8-hour daily processing limit.
+    - **Option B - Direct Upload** (AI Proxy Architecture):
+        - **Four-Stage Flow**: Browser uploads to Object Storage, server compresses to 720p/10fps "analysis proxy", then transfers proxy to Gemini.
+        - **Stage 1 - Storage Upload** (0-40%): Frontend requests presigned PUT URL via `/api/uploads/init`, uploads directly via XMLHttpRequest.
+        - **Stage 2 - Compression** (40-75%): Server downloads original, compresses to 720p/10fps using FFmpeg (CRF 28, mono audio), stores proxy in Object Storage.
+        - **Stage 3 - Gemini Transfer** (75-95%): Server uploads compressed proxy to Gemini File API in 16MB chunks.
+        - **Stage 4 - Ready** (100%): Gemini processes file until ACTIVE state.
+        - **Benefits**: Dramatically faster Gemini transfers (50-100x smaller files), reduced API costs, original preserved for playback.
+        - **Status Polling**: Frontend polls `/api/uploads/status/:uploadId` for progress updates with exponential backoff.
+        - **Idempotency**: Same `attemptId` returns same `uploadId`/presigned URL for retry support.
+        - **Size Verification**: Server verifies uploaded file size matches declared size (hard failure on mismatch >1KB).
+        - **MIME Type Preservation**: Actual file MIME type flows through entire pipeline.
+        - **Presigned URL TTL**: 15 minutes for upload completion.
+        - **Database Tracking**: `uploads` table tracks state machine: UPLOADING → STORED → COMPRESSING → COMPRESSED → TRANSFERRING_TO_GEMINI → ACTIVE (or FAILED). Fields include `proxyStorageKey` and `proxySizeBytes` for the compressed proxy.
+        - Maximum video size: 2GB.
+- **YouTube Player Integration**:
+    - Uses YouTube IFrame Player API for embedded playback in ScreeningRoom.
+    - Supports `seekTo()` for timecode navigation when clicking highlights/concerns.
+    - YouTube URL validation regex: `^https?://(www.)?(youtube.com/watch?v=|youtu.be/)[a-zA-Z0-9_-]{11}`.
 - **Persona System**:
     - **"House Style + Persona Edge" pattern**: Shared `HOUSE_STYLE_GUIDELINES`, `OUTPUT_CONSTRAINTS_REMINDER`, and `SUMMARY_READABILITY_GUIDELINES` ensure consistent tone and formatting across all persona analyses, while `RAW_PERSONA_CONFIGS` define unique aspects.
     - Each persona has a unique system instruction, user prompt template, highlight categories, concern categories, and minimum high-severity concern thresholds.
@@ -69,7 +75,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 
 ### System Design Choices
 - **Database**: PostgreSQL with Drizzle ORM for data persistence.
-    - `sessions` table: Stores video metadata, user questions, language, and persona aliases.
+    - `sessions` table: Stores video metadata (fileUri or youtubeUrl), user questions, language, and persona aliases.
     - `reports` table: Stores detailed analysis reports for each persona.
     - `voice_scripts` table: Caches generated voice scripts and audio URLs.
     - `dialogue_jobs` table: Tracks podcast dialogue generation jobs, including persona pairs, script JSON, audio storage keys, and job status.
@@ -113,9 +119,10 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - `server/geminiService.ts` - Gemini AI integration
 
 ### Frontend Components
-- `components/ScreeningRoom.tsx` - Main session view component (~706 lines)
+- `components/ScreeningRoom.tsx` - Main session view component (~720 lines)
 - `components/HighlightCard.tsx` - Highlight display with HighlightsList
 - `components/ConcernCard.tsx` - Concern display with ConcernsList
+- `components/YouTubePlayer.tsx` - YouTube IFrame Player API integration with seekTo() support
 - `components/ui/ExpandableContent.tsx` - Truncated text with expand/collapse
 - `components/ui/reportHelpers.ts` - Category icons, formatters
 - `components/VoicePlayer.tsx` - Voice note playback UI
