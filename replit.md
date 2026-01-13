@@ -1,42 +1,58 @@
 # FocalPoint AI
 
 ## Overview
-AI-powered focus group platform for indie filmmakers. Analyzes videos through multiple AI personas, each providing timestamped feedback. Features voice notes and podcast dialogues between reviewers.
+AI focus group platform for indie filmmakers. Gemini AI analyzes videos through four distinct personas, providing timestamped feedback, voice notes, and podcast dialogues.
 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
-- **Backend**: Express (port 3001), Vite proxies `/api` requests
+- **Backend**: Express (port 3001), proxied via Vite `/api`
 - **AI**: Google Gemini (`gemini-3-pro-preview`)
-- **TTS**: ElevenLabs (`eleven_v3` English, `eleven_multilingual_v2` zh-TW)
+- **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage
 
 ## Key Files
 
 ### Server
-- `server/index.ts` - Express entry, mounts routes
-- `server/routes/` - sessions, reports, voice, analyze endpoints
-- `server/uploadRoutes.ts` - Upload flow + Gemini transfer
-- `server/services/videoCompressor.ts` - FFmpeg 720p/10fps compression
-- `server/personas.ts` - AI persona configs
-- `server/geminiService.ts` - Gemini API integration
-- `server/elevenLabsService.ts` - TTS integration
+| File | Purpose |
+|------|---------|
+| `server/index.ts` | Express entry, middleware, route mounting |
+| `server/routes/` | sessions, reports, voice, analyze endpoints |
+| `server/uploadRoutes.ts` | Upload flow + Gemini file transfer |
+| `server/dialogueRoutes.ts` | Podcast generation endpoints |
+| `server/middleware/rateLimiting.ts` | Rate limit configs |
+| `server/services/videoCompressor.ts` | FFmpeg 720p/10fps compression |
+| `server/personas.ts` | AI persona definitions |
+| `server/geminiService.ts` | Gemini API wrapper |
+| `server/elevenLabsService.ts` | TTS integration |
 
 ### Frontend
-- `components/ScreeningRoom.tsx` - Main session view
-- `components/UploadForm.tsx` - Video upload + metadata
-- `components/VoicePlayer.tsx` - Voice note playback
-- `components/DialoguePlayer.tsx` - Podcast playback
-- `src/i18n.ts` + `src/locales/` - i18n (English, zh-TW)
+| File | Purpose |
+|------|---------|
+| `components/ScreeningRoom.tsx` | Main session view |
+| `components/UploadForm.tsx` | Video upload + metadata |
+| `components/VoicePlayer.tsx` | Voice note playback |
+| `components/DialoguePlayer.tsx` | Podcast playback |
+| `src/i18n.ts` | i18n config |
+| `src/locales/` | EN + zh-TW translations |
 
 ### Shared
-- `shared/schema.ts` - Drizzle database schema
+| File | Purpose |
+|------|---------|
+| `shared/schema.ts` | Drizzle database schema |
+| `geminiService.ts` | Frontend Gemini client |
 
-## External Services
-- **Gemini AI**: Video analysis
-- **YouTube Data API v3**: URL validation
-- **ElevenLabs**: Voice notes + podcast dialogues (English only for dialogues)
-- **Replit Object Storage**: Video uploads, audio files
+## Security
+- Rate limiting: voice/podcast 1/min, polling 20/min
+- Error sanitization: generic client messages, detailed server logs
+- Input validation on all endpoints
 
 ## Secrets
 `GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `ELEVENLABS_API_KEY`
+
+## Commands
+```bash
+npm run dev          # Start dev server
+npm run db:push      # Sync database schema
+npm run db:studio    # Open Drizzle Studio
+```

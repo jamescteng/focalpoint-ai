@@ -1,25 +1,24 @@
 # FocalPoint AI
 
-AI-powered focus group feedback for indie filmmakers using Google's Gemini AI.
+AI-powered focus group feedback for indie filmmakers using Google Gemini AI.
 
 ## Features
 
-- **Multi-Persona Analysis** - Four AI reviewers with distinct perspectives
-- **YouTube URL Support** - Paste public URLs for instant analysis
-- **Large Video Upload** - Up to 2GB with server-side compression
-- **Timestamped Feedback** - Highlights and concerns linked to exact moments
-- **Voice Notes** - Audio summaries from each reviewer
-- **Podcast Dialogues** - Two-reviewer conversations (English only)
-- **Multi-Language** - English and Traditional Chinese
+- **Multi-Persona Analysis** - Four AI reviewers with distinct perspectives analyze your video simultaneously
+- **YouTube or Upload** - Paste public YouTube URLs or upload files up to 2GB (auto-compressed to 720p/10fps)
+- **Timestamped Feedback** - Highlights and concerns linked to exact video moments
+- **Voice Notes** - ElevenLabs audio summaries from each reviewer
+- **Podcast Dialogues** - Two-reviewer conversations discussing your film (English only)
+- **Bilingual UI** - Full English and Traditional Chinese support with language switcher
 
-## Personas
+## AI Personas
 
-| Persona | Focus |
-|---------|-------|
-| Acquisitions Director | Commercial viability, marketability |
-| Cultural Editor | Artistic merit, representation |
-| Mass Audience Viewer | Clarity, engagement |
-| Social Impact Viewer | Message effectiveness, ethics |
+| Persona | Focus Area |
+|---------|------------|
+| Acquisitions Director | Commercial viability, distribution potential |
+| Cultural Editor | Artistic merit, cultural representation |
+| Mass Audience Viewer | Clarity, pacing, entertainment value |
+| Social Impact Viewer | Message effectiveness, ethical considerations |
 
 ## Quick Start
 
@@ -29,27 +28,24 @@ npm run db:push
 npm run dev
 ```
 
-Set API keys: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `YOUTUBE_API_KEY`
-
-Open http://localhost:5000
+Required secrets: `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `YOUTUBE_API_KEY`
 
 ## Tech Stack
 
-- React 19, TypeScript, Vite, Tailwind CSS
-- Express.js backend
-- Google Gemini AI, ElevenLabs TTS
-- PostgreSQL + Drizzle ORM
-- Replit Object Storage
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Backend | Express.js on port 3001 (proxied via Vite) |
+| AI | Google Gemini (gemini-3-pro-preview) |
+| TTS | ElevenLabs (eleven_v3 / eleven_multilingual_v2) |
+| Database | PostgreSQL + Drizzle ORM |
+| Storage | Replit Object Storage |
 
-## API Endpoints
+## Security
 
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/uploads/init` | Initialize upload |
-| `POST /api/analyze` | Run video analysis |
-| `GET /api/personas` | List personas |
-| `POST /api/sessions/:id/reports/:personaId/voice-script` | Generate voice note |
-| `POST /api/dialogue/create` | Start podcast generation |
+- Rate limiting on expensive operations (voice/podcast generation, polling)
+- Sanitized error responses (details logged server-side only)
+- Input validation on all API endpoints
 
 ## License
 

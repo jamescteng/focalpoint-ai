@@ -1,60 +1,80 @@
 # Architecture
 
-## System Overview
+## System Flow
 
 ```
-Browser (React) → Vite Proxy → Express Backend → Gemini AI
-                                    ↓
-                              PostgreSQL + Object Storage + ElevenLabs
+Browser (React/Vite:5000) ──proxy──> Express:3001 ──> Gemini AI
+                                          │
+                    ┌─────────────────────┼─────────────────────┐
+                    ↓                     ↓                     ↓
+              PostgreSQL          Object Storage          ElevenLabs
 ```
 
-## Components
+## Frontend
 
-### Frontend (port 5000)
-React + TypeScript + Vite. Handles video upload, session management, report display, and audio playback.
+**Port 5000** - React 19 + TypeScript + Vite + Tailwind
 
-**Key components**: `UploadForm`, `ScreeningRoom`, `VoicePlayer`, `DialoguePlayer`
+| Component | Purpose |
+|-----------|---------|
+| `UploadForm` | Video upload or YouTube URL input with metadata |
+| `ScreeningRoom` | Session view with video player, reports, tabs |
+| `VoicePlayer` | Audio playback for voice notes |
+| `DialoguePlayer` | Podcast conversation playback |
 
-### Backend (port 3001)
-Express server with modular routes. Vite proxies `/api/*` requests.
+**i18n**: Full English/zh-TW support via i18next. Personas, UI labels, and reports all translated.
 
-**Routes**: sessions, reports, voice, analyze, uploads, dialogue
+## Backend
 
-### External Services
-- **Gemini AI**: Video analysis with persona-specific prompts
-- **ElevenLabs**: Text-to-speech for voice notes and podcast dialogues
-- **YouTube Data API**: URL validation before analysis
+**Port 3001** - Express with modular routes
+
+| Route | Function |
+|-------|----------|
+| `/api/uploads/*` | Upload init, presigned URLs, compression, Gemini transfer |
+| `/api/analyze` | Run Gemini analysis with selected personas |
+| `/api/sessions/*` | CRUD for sessions and reports |
+| `/api/voice/*` | Voice script generation + ElevenLabs TTS |
+| `/api/dialogue/*` | Podcast job creation and polling |
+| `/api/personas` | List available personas |
+
+**Security**: Rate limiting (1/min voice, 1/min podcast, 20/min polling), sanitized errors.
 
 ## Data Flow
 
-### Video Upload
-1. Browser uploads to Object Storage (presigned URL)
-2. Server compresses to 720p/10fps proxy
-3. Server transfers proxy to Gemini
-4. Analysis ready when Gemini file is ACTIVE
+### Upload → Analysis
+1. Browser uploads to Object Storage via presigned URL
+2. Server compresses to 720p/10fps proxy (~85% size reduction)
+3. Proxy transferred to Gemini Files API
+4. Analysis runs when file status = ACTIVE
 
-### Analysis
-1. Frontend sends fileUri + selected personas
-2. Backend runs parallel Gemini calls per persona
-3. Each persona returns: summary, 5 highlights, 5 concerns, answers
-4. Reports saved to PostgreSQL
+### YouTube → Analysis
+1. URL validated via YouTube Data API v3
+2. Gemini analyzes directly from YouTube URL
+3. No upload/compression needed
 
 ### Voice Notes
-1. Generate structured script from report
-2. LLM naturalizes to speech-native prose
-3. ElevenLabs converts to audio
-4. Audio stored in Object Storage
+1. Report → structured script → LLM naturalizes prose
+2. ElevenLabs TTS → audio file → Object Storage
+3. Cached in `voice_scripts` table
 
-## Database Tables
-- `sessions` - Video metadata, questions, language
-- `reports` - Analysis results per persona
-- `voice_scripts` - Cached scripts + audio URLs
-- `dialogue_jobs` - Podcast generation jobs
-- `uploads` - Upload state machine tracking
+### Podcast Dialogue
+1. Select two personas → generate debate script
+2. ElevenLabs conversational API → dual-voice audio
+3. Stored in `dialogue_jobs` table (English only)
+
+## Database Schema
+
+| Table | Purpose |
+|-------|---------|
+| `sessions` | Video metadata, questions, language preference |
+| `reports` | AI analysis results per persona |
+| `voice_scripts` | Cached voice scripts + audio URLs |
+| `dialogue_jobs` | Podcast generation state machine |
+| `uploads` | Upload progress tracking |
 
 ## Personas
-Four AI reviewers with distinct focus areas:
-- **Acquisitions Director**: Commercial viability
-- **Cultural Editor**: Artistic merit, representation
-- **Mass Audience Viewer**: Clarity, engagement
-- **Social Impact Viewer**: Message effectiveness
+
+Four distinct reviewer perspectives, each with unique voice/demographics:
+- **Acquisitions Director** - Industry veteran, commercial focus
+- **Cultural Editor** - Arts publication, representation focus
+- **Mass Audience Viewer** - Casual viewer, entertainment focus
+- **Social Impact Viewer** - Activist, ethics focus
