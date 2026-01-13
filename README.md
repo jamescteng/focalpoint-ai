@@ -7,6 +7,8 @@ Get focus group-style feedback through configurable AI personas, each offering a
 ## Features
 
 - **On-Demand Persona Analysis** - Select one reviewer to start, add more after viewing
+- **YouTube URL Support** - Paste public YouTube URLs for instant analysis (no upload needed)
+- **Real-time URL Validation** - YouTube Data API checks video accessibility before analysis
 - **Large Video Support** - Upload videos up to 2GB with direct-to-storage streaming
 - **Smart Compression** - Server-side 720p/10fps proxy creation for 50-100x faster AI transfers
 - **Timestamped Feedback** - Every observation links to the exact moment
@@ -46,6 +48,7 @@ Get focus group-style feedback through configurable AI personas, each offering a
    ```bash
    export GEMINI_API_KEY=your_gemini_key
    export ELEVENLABS_API_KEY=your_elevenlabs_key
+   export YOUTUBE_API_KEY=your_youtube_data_api_key  # For YouTube URL validation
    ```
 
 3. Push database schema:
@@ -67,6 +70,7 @@ Get focus group-style feedback through configurable AI personas, each offering a
 | `POST /api/uploads/init` | Initialize upload, get presigned URL |
 | `POST /api/uploads/complete` | Mark storage upload complete, start Gemini transfer |
 | `GET /api/uploads/status/:uploadId` | Poll upload/transfer progress |
+| `POST /api/sessions/validate-youtube` | Validate YouTube URL accessibility |
 | `POST /api/analyze` | Analyze video with selected personas |
 | `GET /api/personas` | List available personas |
 | `POST /api/sessions/:id/reports/:personaId/voice-script` | Generate voice note |

@@ -27,10 +27,17 @@ Get instant, multi-perspective feedback on your video that would traditionally r
    ├── Add research questions (what you want to learn)
    └── Select report language (English or Traditional Chinese)
 
-2. UPLOAD VIDEO
-   ├── Select video file (up to 2GB)
-   ├── File fingerprint captured (name, size, date) for later reattachment
-   └── Progress bar shows upload status
+2. PROVIDE VIDEO (Choose One)
+   ├── Option A: YouTube URL
+   │   ├── Paste a public YouTube URL
+   │   ├── Real-time validation checks video accessibility
+   │   ├── Unlisted/private videos rejected with clear message
+   │   └── No upload needed, instant analysis start
+   │
+   └── Option B: Upload Video File
+       ├── Select video file (up to 2GB)
+       ├── File fingerprint captured (name, size, date) for later reattachment
+       └── Progress bar shows upload status
 
 3. CHOOSE FIRST REVIEWER
    ├── Select ONE persona to start (cost-efficient approach)
@@ -128,7 +135,7 @@ COMPONENT DETAILS:
 │ • server/index.ts (~175 lines) - Mounts all route modules                   │
 │                                                                             │
 │ Route Modules (server/routes/):                                             │
-│ • sessions.ts    - Session CRUD endpoints                                   │
+│ • sessions.ts    - Session CRUD endpoints, YouTube URL validation           │
 │ • reports.ts     - Report get/save endpoints                                │
 │ • voice.ts       - Voice script generation, audio streaming                 │
 │ • analyze.ts     - Video analysis endpoint                                  │
@@ -154,6 +161,7 @@ COMPONENT DETAILS:
 │ • GET  /api/uploads/status/:id  - Poll upload/transfer progress             │
 │ • POST /api/analyze             - Run AI analysis with selected personas    │
 │ • CRUD /api/sessions            - Session persistence                       │
+│ • POST /api/sessions/validate-youtube - Validate YouTube URL accessibility  │
 │ • CRUD /api/sessions/:id/reports - Report storage                           │
 │ • POST /api/sessions/:id/reports/:personaId/voice-script - Generate voice   │
 │ • POST /api/dialogue/create     - Start podcast dialogue job                │

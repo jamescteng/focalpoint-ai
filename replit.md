@@ -18,9 +18,10 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - **Frontend**: Vite dev server on port 5000.
 - **Backend**: Express server on port 3001, binding to 0.0.0.0.
 - **API Proxy**: Vite proxies `/api` requests to the Express backend.
-- **Security**: Gemini API key stored as a secret (`GEMINI_API_KEY`) and never exposed to the frontend.
+- **Security**: API keys stored as secrets (`GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `ELEVENLABS_API_KEY`) and never exposed to the frontend.
 - **Video Input** (Two Options):
     - **Option A - YouTube URL**: Paste a public YouTube URL directly. Gemini analyzes the video without upload/compression. Benefits: No upload time, no file size limits, no 48-hour expiration. Limitations: Video must be public, 8-hour daily processing limit.
+    - **YouTube URL Validation**: Real-time validation using YouTube Data API v3 to check video privacy status. Unlisted and private videos are rejected with clear error messages before analysis begins. Falls back to oEmbed if API key is not configured.
     - **Option B - Direct Upload** (AI Proxy Architecture):
         - **Four-Stage Flow**: Browser uploads to Object Storage, server compresses to 720p/10fps "analysis proxy", then transfers proxy to Gemini.
         - **Stage 1 - Storage Upload** (0-40%): Frontend requests presigned PUT URL via `/api/uploads/init`, uploads directly via XMLHttpRequest.
@@ -89,6 +90,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 
 ## External Dependencies
 - **Google Gemini AI**: Used for video analysis, specifically the `gemini-3-pro-preview` model.
+- **YouTube Data API v3**: Used for real-time validation of YouTube video privacy status. Checks if videos are public, unlisted, or private before allowing analysis.
 - **PostgreSQL**: Relational database for session and report persistence.
 - **Drizzle ORM**: TypeScript ORM for interacting with PostgreSQL.
 - **ElevenLabs**: Third-party API for text-to-speech audio generation.
@@ -101,7 +103,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 
 ### Server (Modular Route Structure)
 - `server/index.ts` - Express server entry point (~175 lines, mounts all route modules)
-- `server/routes/sessions.ts` - Session CRUD endpoints
+- `server/routes/sessions.ts` - Session CRUD endpoints, YouTube URL validation
 - `server/routes/reports.ts` - Report get/save endpoints
 - `server/routes/voice.ts` - Voice script generation, audio streaming
 - `server/routes/analyze.ts` - Video analysis endpoint
