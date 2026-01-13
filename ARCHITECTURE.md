@@ -124,6 +124,10 @@ COMPONENT DETAILS:
 │                                                                             │
 │ Services:                                                                   │
 │ • geminiService.ts     - API client with polling logic                      │
+│ • api.ts (client/)     - Fetch wrapper with correlation ID generation       │
+│                                                                             │
+│ Hooks:                                                                      │
+│ • hooks/useYouTubePlayer.ts - YouTube IFrame Player API integration         │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
                                    │ /api/* requests proxied
@@ -147,6 +151,7 @@ COMPONENT DETAILS:
 │ Middleware (server/middleware/):                                            │
 │ • validation.ts     - Shared input validation                               │
 │ • rateLimiting.ts   - Rate limiting configuration                           │
+│ • requestId.ts      - Correlation ID extraction/generation, request logging │
 │                                                                             │
 │ Services (server/services/):                                                │
 │ • videoCompressor.ts - FFmpeg compression (720p, 10fps, CRF 28, mono audio) │
@@ -154,6 +159,7 @@ COMPONENT DETAILS:
 │ Utilities (server/utils/):                                                  │
 │ • personaAliases.ts - Persona alias generation                              │
 │ • logger.ts         - Centralized logging                                   │
+│ • fetchWithTrace.ts - Outbound HTTP calls with correlation ID logging       │
 │                                                                             │
 │ API Endpoints:                                                              │
 │ • POST /api/uploads/init        - Initialize upload, get presigned URL      │
@@ -569,6 +575,58 @@ dialogue_jobs
 | File Validation | Must be `video/*`, max 2GB |
 | Secrets | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` never exposed to frontend |
 | Error Handling | Generic messages to clients, full details logged server-side |
+| Request Tracing | All requests include correlation IDs (X-Request-Id header) for end-to-end debugging |
+
+---
+
+## Request Tracing
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CORRELATION ID FLOW                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BROWSER                  VITE PROXY              EXPRESS BACKEND         EXTERNAL API
+   │                         │                         │                      │
+   │ api.ts generates UUID   │                         │                      │
+   │ X-Request-Id: abc123    │                         │                      │
+   │────────────────────────▶│                         │                      │
+   │                         │ Passes header through   │                      │
+   │                         │────────────────────────▶│                      │
+   │                         │                         │                      │
+   │                         │                         │ requestId.ts logs:   │
+   │                         │                         │ [abc123] --> GET /   │
+   │                         │                         │                      │
+   │                         │                         │ fetchWithTrace logs: │
+   │                         │                         │ [abc123] YouTube API │
+   │                         │                         │─────────────────────▶│
+   │                         │                         │                      │
+   │                         │                         │ [abc123] <-- 200 OK  │
+   │                         │                         │◀─────────────────────│
+   │                         │                         │                      │
+   │                         │                         │ [abc123] <-- GET 200 │
+   │                         │ { data, requestId }     │ (12ms)               │
+   │ Response includes       │◀────────────────────────│                      │
+   │ requestId for display   │                         │                      │
+   │◀────────────────────────│                         │                      │
+   │                         │                         │                      │
+   │ On error:               │                         │                      │
+   │ "Upload failed (Ref:    │                         │                      │
+   │  abc12345)"             │                         │                      │
+
+
+KEY FILES:
+  • client/api.ts         - Generates UUID, adds X-Request-Id header
+  • middleware/requestId.ts - Extracts/generates ID, logs start/end with timing
+  • utils/fetchWithTrace.ts - Logs outbound calls with correlation ID
+  • All routes             - Include requestId in responses for debugging
+
+BENEFITS:
+  • End-to-end tracing from browser to external APIs
+  • Error messages include truncated reference IDs for support
+  • Server logs can be filtered by request ID
+  • Timing information for performance debugging
+```
 
 ---
 
@@ -597,7 +655,7 @@ dialogue_jobs
 | Component | Technology |
 |-----------|------------|
 | Frontend | React 19, TypeScript, Vite 6 |
-| Styling | Tailwind CSS (CDN) |
+| Styling | Tailwind CSS (via PostCSS) |
 | Backend | Express, TypeScript, Node.js |
 | Database | PostgreSQL + Drizzle ORM |
 | AI | Google Gemini (gemini-3-pro-preview) |
