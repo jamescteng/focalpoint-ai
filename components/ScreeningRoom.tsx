@@ -8,6 +8,7 @@ import { ReviewerPairPicker } from './ReviewerPairPicker';
 import { DialoguePlayer } from './DialoguePlayer';
 import { HighlightsList } from './HighlightCard';
 import { ConcernsList } from './ConcernCard';
+import { YouTubePlayer, useYouTubePlayer } from './YouTubePlayer';
 
 interface PersonaAlias {
   personaId: string;
@@ -67,6 +68,9 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const [videoReady, setVideoReady] = useState(false);
   const [pendingSeek, setPendingSeek] = useState<number | null>(null);
   
+  const youtubePlayer = useYouTubePlayer();
+  const isYoutubeSession = !!project.youtubeUrl;
+  
   const activeReport = reports[activeReportIndex];
   const activePersona = PERSONAS.find(p => p.id === activeReport?.personaId) || PERSONAS[0];
   
@@ -110,6 +114,10 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   };
 
   const seekTo = (seconds: number) => {
+    if (isYoutubeSession) {
+      youtubePlayer.seekTo(seconds);
+      return;
+    }
     if (!project.videoUrl) {
       return;
     }
@@ -425,7 +433,15 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
               className="hidden"
             />
             
-            {project.videoUrl ? (
+            {isYoutubeSession && project.youtubeUrl ? (
+              <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card relative">
+                <YouTubePlayer
+                  youtubeUrl={project.youtubeUrl}
+                  onReady={youtubePlayer.setPlayer}
+                  className="w-full h-full"
+                />
+              </div>
+            ) : project.videoUrl ? (
               <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-card relative">
                 <video 
                   ref={videoRef}

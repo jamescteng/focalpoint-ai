@@ -83,6 +83,7 @@ const App: React.FC = () => {
         questions: session.questions,
         language: session.language as 'en' | 'zh-TW',
         selectedPersonaIds: uniquePersonaIds,
+        youtubeUrl: session.youtubeUrl || undefined,
         videoFingerprint: session.fileName && session.fileSize && session.fileLastModified ? {
           fileName: session.fileName,
           fileSize: session.fileSize,
@@ -154,12 +155,15 @@ const App: React.FC = () => {
     let currentUploadResult: UploadResult | null = null;
     let sessionId: number | null = null;
     
+    const isYoutubeSession = !!p.youtubeUrl;
+    
     try {
       const session = await createSession({
         title: p.title,
         synopsis: p.synopsis,
         questions: p.questions,
         language: p.language,
+        youtubeUrl: p.youtubeUrl,
       });
       sessionId = session.id;
       setCurrentSessionId(sessionId);
@@ -169,7 +173,10 @@ const App: React.FC = () => {
       console.error('Failed to create session:', err);
     }
     
-    if (p.videoFile) {
+    if (isYoutubeSession) {
+      setProcessProgress(50);
+      setStatusMessage(isZH ? "準備分析YouTube視頻..." : "Preparing to analyze YouTube video...");
+    } else if (p.videoFile) {
       try {
         setStatusMessage(isZH ? "上傳視頻中... 請勿重新整理頁面" : "Uploading video... Please do not refresh the page.");
         currentUploadResult = await uploadVideo(
@@ -207,7 +214,7 @@ const App: React.FC = () => {
       }
     }
 
-    if (!currentUploadResult) {
+    if (!isYoutubeSession && !currentUploadResult) {
       setErrorMessage("Video file is required for analysis.");
       setState(AppState.IDLE);
       uploadLockRef.current = false;

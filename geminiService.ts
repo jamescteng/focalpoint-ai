@@ -338,18 +338,24 @@ export const uploadVideo = async (
 
 export const analyzeWithPersona = async (
   project: Project,
-  uploadResult: UploadResult,
+  uploadResult: UploadResult | null,
   personaId: string
 ): Promise<AgentReport> => {
   if (!project.title || project.title.trim().length === 0) {
     throw new Error("DATA_ERR_01: Invalid Project Metadata.");
   }
 
-  if (!uploadResult?.fileUri) {
+  const isYoutubeSession = !!project.youtubeUrl;
+  
+  if (!isYoutubeSession && !uploadResult?.fileUri) {
     throw new Error("DATA_ERR_02: Video must be uploaded first.");
   }
 
-  FocalPointLogger.info("API_Call", { persona: personaId, fileUri: uploadResult.fileUri });
+  FocalPointLogger.info("API_Call", { 
+    persona: personaId, 
+    fileUri: uploadResult?.fileUri,
+    youtubeUrl: isYoutubeSession ? '[YouTube]' : undefined
+  });
 
   try {
     const response = await fetch('/api/analyze', {
@@ -363,8 +369,9 @@ export const analyzeWithPersona = async (
         srtContent: project.srtContent || '',
         questions: project.questions,
         language: project.language,
-        fileUri: uploadResult.fileUri,
-        fileMimeType: uploadResult.fileMimeType,
+        fileUri: uploadResult?.fileUri,
+        fileMimeType: uploadResult?.fileMimeType,
+        youtubeUrl: project.youtubeUrl,
         personaIds: [personaId]
       })
     });
@@ -413,6 +420,7 @@ export interface DbSession {
   fileName: string | null;
   fileSize: number | null;
   fileLastModified: number | null;
+  youtubeUrl: string | null;
   personaAliases: PersonaAlias[];
   createdAt: string;
   updatedAt: string;
@@ -438,6 +446,7 @@ export const createSession = async (data: {
   fileUri?: string;
   fileMimeType?: string;
   fileName?: string;
+  youtubeUrl?: string;
 }): Promise<DbSession> => {
   const response = await fetch('/api/sessions', {
     method: 'POST',
