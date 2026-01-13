@@ -145,6 +145,7 @@ export const dialogueJobsRelations = relations(dialogueJobs, ({ one }) => ({
 }));
 
 // Upload tracking for direct-to-storage uploads
+// Status flow: UPLOADING → STORED → COMPRESSING → COMPRESSED → TRANSFERRING_TO_GEMINI → ACTIVE (or FAILED)
 export const uploads = pgTable("uploads", {
   id: serial("id").primaryKey(),
   uploadId: varchar("upload_id", { length: 64 }).notNull().unique(),
@@ -154,9 +155,11 @@ export const uploads = pgTable("uploads", {
   mimeType: varchar("mime_type", { length: 100 }).notNull(),
   sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
   storageKey: text("storage_key").notNull(),
+  proxyStorageKey: text("proxy_storage_key"),
+  proxySizeBytes: bigint("proxy_size_bytes", { mode: "number" }),
   status: varchar("status", { length: 30 }).notNull().default("UPLOADING"),
   geminiFileUri: text("gemini_file_uri"),
-  progress: jsonb("progress").$type<{ stage: string; pct: number }>().default({ stage: "uploading", pct: 0 }),
+  progress: jsonb("progress").$type<{ stage: string; pct: number; message?: string }>().default({ stage: "uploading", pct: 0 }),
   lastError: text("last_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
