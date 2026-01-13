@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './Button';
 import { Project } from '../types';
-import { INITIAL_QUESTIONS, PERSONAS } from '../constants.tsx';
+import { PERSONAS } from '../constants.tsx';
 import { apiPost, serializeError, type ApiError } from '../client/api';
 
 interface UploadFormProps {
@@ -34,6 +34,13 @@ interface YoutubeValidation {
 
 export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = false }) => {
   const { t, i18n } = useTranslation();
+  
+  const getDefaultQuestions = () => [
+    t('uploadForm.defaultQuestion1'),
+    t('uploadForm.defaultQuestion2'),
+    t('uploadForm.defaultQuestion3'),
+  ];
+  
   const [title, setTitle] = useState('');
   const [synopsis, setSynopsis] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -42,12 +49,13 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
   const [youtubeError, setYoutubeError] = useState('');
   const [youtubeValidation, setYoutubeValidation] = useState<YoutubeValidation>({ status: 'idle' });
   const [language, setLanguage] = useState<'en' | 'zh-TW'>((i18n.language === 'zh-TW' ? 'zh-TW' : 'en'));
-  const [questions, setQuestions] = useState<string[]>(INITIAL_QUESTIONS);
+  const [questions, setQuestions] = useState<string[]>(getDefaultQuestions());
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('acquisitions_director');
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setLanguage(i18n.language === 'zh-TW' ? 'zh-TW' : 'en');
+    setQuestions(getDefaultQuestions());
   }, [i18n.language]);
 
   useEffect(() => {
