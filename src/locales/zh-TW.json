@@ -64,7 +64,10 @@
     "highlights": "亮點",
     "concerns": "問題",
     "profile": "個人檔案",
-    "goals": "研究目標",
+    "goals": "目標",
+    "goalNumber": "目標 {{number}}",
+    "primaryMarket": "主要市場",
+    "background": "背景",
     "addReviewer": "新增評論者",
     "analyzing": "分析中...",
     "newScreening": "新放映",
@@ -118,7 +121,11 @@
     "videoProcessed": "影片已上傳並處理完成",
     "preparingYoutube": "準備分析 YouTube 影片...",
     "runningAppraisal": "正在執行深度評估：{{persona}}...",
-    "analyzingWith": "正在分析：{{persona}}..."
+    "analyzingWith": "正在分析：{{persona}}...",
+    "activeMultiModalPass": "多模態分析進行中",
+    "isReviewingYourFilm": "正在評估您的影片。",
+    "parsingCues": "解析時間線索、表演細節與視覺語意...",
+    "statusInspecting": "狀態：檢查畫面緩衝區"
   },
   "errors": {
     "failedToLoad": "載入作業失敗，請重試。",
@@ -135,5 +142,18 @@
     "error": "錯誤",
     "retry": "重試",
     "close": "關閉"
+  },
+  "youtubePlayer": {
+    "invalidUrl": "無效的 YouTube 網址",
+    "loading": "載入 YouTube 播放器中...",
+    "playbackUnavailable": "此處無法播放",
+    "embeddingDisabled": "影片創作者已禁止在外部網站嵌入播放。您的分析已完成，但需要直接在 YouTube 上觀看影片。",
+    "watchOnYoutube": "在 YouTube 觀看",
+    "invalidVideoId": "無效的影片 ID",
+    "html5Error": "HTML5 播放器錯誤",
+    "videoNotFound": "找不到影片",
+    "cannotEmbed": "無法嵌入影片",
+    "loadFailed": "載入影片失敗",
+    "playerLoadFailed": "載入 YouTube 播放器失敗"
   }
 }

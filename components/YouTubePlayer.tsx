@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface YTPlayer {
   destroy(): void;
@@ -87,6 +88,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   className = '',
   embeddable = true,
 }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +102,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
   useEffect(() => {
     if (!videoId) {
-      setError('Invalid YouTube URL');
+      setError('invalidUrl');
       setIsLoading(false);
       return;
     }
@@ -140,14 +142,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             },
             onError: (event: { data: number }) => {
               if (mounted) {
-                const errorMessages: Record<number, string> = {
-                  2: 'Invalid video ID',
-                  5: 'HTML5 player error',
-                  100: 'Video not found',
-                  101: 'Video cannot be embedded',
-                  150: 'Video cannot be embedded',
+                const errorKeys: Record<number, string> = {
+                  2: 'invalidVideoId',
+                  5: 'html5Error',
+                  100: 'videoNotFound',
+                  101: 'cannotEmbed',
+                  150: 'cannotEmbed',
                 };
-                setError(errorMessages[event.data] || 'Failed to load video');
+                setError(errorKeys[event.data] || 'loadFailed');
                 setIsLoading(false);
               }
             },
@@ -155,7 +157,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         });
       } catch (err) {
         if (mounted) {
-          setError('Failed to load YouTube player');
+          setError('playerLoadFailed');
           setIsLoading(false);
         }
       }
@@ -175,7 +177,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   if (!videoId) {
     return (
       <div className={`flex items-center justify-center bg-slate-900 text-white ${className}`}>
-        <p className="text-sm text-slate-400">Invalid YouTube URL</p>
+        <p className="text-sm text-slate-400">{t('youtubePlayer.invalidUrl')}</p>
       </div>
     );
   }
@@ -186,24 +188,23 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            <p className="text-sm text-slate-400">Loading YouTube player...</p>
+            <p className="text-sm text-slate-400">{t('youtubePlayer.loading')}</p>
           </div>
         </div>
       )}
       {(error || embeddingDisabled) && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
           <div className="text-center px-6 max-w-md">
-            {(error === 'Video cannot be embedded' || embeddingDisabled) ? (
+            {(error === 'cannotEmbed' || embeddingDisabled) ? (
               <>
                 <div className="w-14 h-14 bg-slate-700 rounded-2xl flex items-center justify-center mb-4 mx-auto">
                   <svg className="w-7 h-7 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
                   </svg>
                 </div>
-                <h3 className="text-white font-medium text-lg mb-2">Playback Unavailable Here</h3>
+                <h3 className="text-white font-medium text-lg mb-2">{t('youtubePlayer.playbackUnavailable')}</h3>
                 <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                  The video creator has disabled embedding on external sites. 
-                  Your analysis is complete, but you'll need to watch the video directly on YouTube.
+                  {t('youtubePlayer.embeddingDisabled')}
                 </p>
                 <a
                   href={youtubeDirectUrl}
@@ -214,7 +215,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
                   </svg>
-                  Watch on YouTube
+                  {t('youtubePlayer.watchOnYoutube')}
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
@@ -227,7 +228,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <p className="text-sm text-slate-400">{error}</p>
+                <p className="text-sm text-slate-400">{t(`youtubePlayer.${error}`)}</p>
               </>
             )}
           </div>

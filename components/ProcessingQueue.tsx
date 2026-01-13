@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Persona } from '../types';
 
 interface ProcessingQueueProps {
@@ -9,20 +10,23 @@ interface ProcessingQueueProps {
 }
 
 export const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ personas, currentIndex, progress }) => {
+  const { t, i18n } = useTranslation();
   const currentPersona = personas[currentIndex];
+  
+  const translatedRole = t(`personas.${currentPersona.id}.role`, { defaultValue: currentPersona.role });
 
   return (
     <div className="max-w-3xl mx-auto py-40 px-8 text-center">
       <div className="mb-20">
         <div className="inline-flex items-center gap-4 px-6 py-3 rounded-full bg-white border border-zinc-100 text-[10px] text-zinc-400 uppercase tracking-[0.4em] mb-12 font-black shadow-sm">
           <span className="w-2 h-2 rounded-full bg-black animate-ping" />
-          Active Multi-Modal Pass
+          {t('processing.activeMultiModalPass')}
         </div>
         <h2 className="text-5xl md:text-6xl font-bold mb-10 text-black leading-tight tracking-tight">
-          {currentPersona.name} <br/> <span className="text-zinc-300 font-medium">is reviewing your film.</span>
+          {currentPersona.name} <br/> <span className="text-zinc-300 font-medium">{t('processing.isReviewingYourFilm')}</span>
         </h2>
         <p className="text-zinc-400 text-2xl max-w-lg mx-auto leading-relaxed font-light">
-          Parsing temporal cues, performance nuance, and visual semantics...
+          {t('processing.parsingCues')}
         </p>
       </div>
 
@@ -42,8 +46,8 @@ export const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ personas, curr
             className="relative w-48 h-48 rounded-[3.5rem] object-cover border-8 border-white shadow-[0_30px_60px_rgba(0,0,0,0.1)] mb-8" 
           />
         </div>
-        <span className="text-xl font-semibold text-black">{currentPersona.role}</span>
-        <span className="text-xs text-zinc-400 uppercase tracking-[0.3em] mt-3 font-black">Status: Inspecting Frame Buffer</span>
+        <span className="text-xl font-semibold text-black">{translatedRole}</span>
+        <span className="text-xs text-zinc-400 uppercase tracking-[0.3em] mt-3 font-black">{t('processing.statusInspecting')}</span>
       </div>
     </div>
   );

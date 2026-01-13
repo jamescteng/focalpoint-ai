@@ -64,7 +64,10 @@
     "highlights": "Highlights",
     "concerns": "Concerns",
     "profile": "Profile",
-    "goals": "Research Goals",
+    "goals": "Goals",
+    "goalNumber": "Goal {{number}}",
+    "primaryMarket": "Primary Market",
+    "background": "Background",
     "addReviewer": "Add Reviewer",
     "analyzing": "Analyzing...",
     "newScreening": "New Screening",
@@ -118,7 +121,11 @@
     "videoProcessed": "Video uploaded and processed",
     "preparingYoutube": "Preparing to analyze YouTube video...",
     "runningAppraisal": "Running deep appraisal with {{persona}}...",
-    "analyzingWith": "Analyzing with {{persona}}..."
+    "analyzingWith": "Analyzing with {{persona}}...",
+    "activeMultiModalPass": "Active Multi-Modal Pass",
+    "isReviewingYourFilm": "is reviewing your film.",
+    "parsingCues": "Parsing temporal cues, performance nuance, and visual semantics...",
+    "statusInspecting": "Status: Inspecting Frame Buffer"
   },
   "errors": {
     "failedToLoad": "Failed to load session. Please try again.",
@@ -135,5 +142,18 @@
     "error": "Error",
     "retry": "Retry",
     "close": "Close"
+  },
+  "youtubePlayer": {
+    "invalidUrl": "Invalid YouTube URL",
+    "loading": "Loading YouTube player...",
+    "playbackUnavailable": "Playback Unavailable Here",
+    "embeddingDisabled": "The video creator has disabled embedding on external sites. Your analysis is complete, but you'll need to watch the video directly on YouTube.",
+    "watchOnYoutube": "Watch on YouTube",
+    "invalidVideoId": "Invalid video ID",
+    "html5Error": "HTML5 player error",
+    "videoNotFound": "Video not found",
+    "cannotEmbed": "Video cannot be embedded",
+    "loadFailed": "Failed to load video",
+    "playerLoadFailed": "Failed to load YouTube player"
   }
 }

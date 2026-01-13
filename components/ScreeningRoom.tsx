@@ -620,7 +620,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                     onClick={handleRegenerateDialogue}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
-                    {project.language === 'zh-TW' ? '重試' : 'Try Again'}
+                    {t('common.retry')}
                   </button>
                 </div>
               </div>
@@ -646,10 +646,10 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                 className="w-24 h-24 rounded-2xl object-cover shadow-card mb-4" 
               />
               <h4 className="text-lg font-bold text-slate-900">{activePersonaDisplayName}</h4>
-              <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{activePersona.role}</p>
+              <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t(`personas.${activePersona.id}.role`, { defaultValue: activePersona.role })}</p>
               {activePersona.focusAreas && (
                 <div className="flex flex-wrap justify-center gap-1.5 mt-3">
-                  {activePersona.focusAreas.map((area, idx) => (
+                  {(t(`personas.${activePersona.id}.focusAreas`, { returnObjects: true, defaultValue: activePersona.focusAreas }) as string[]).map((area, idx) => (
                     <span key={idx} className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
                       {area}
                     </span>
@@ -679,7 +679,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                   rightPanelTab === 'profile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
-                Profile
+                {t('screeningRoom.profile')}
               </button>
               <button
                 onClick={() => setRightPanelTab('goals')}
@@ -687,7 +687,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                   rightPanelTab === 'goals' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
-                Goals ({activeReport.answers.length})
+                {t('screeningRoom.goals')} ({activeReport.answers.length})
               </button>
             </div>
           </div>
@@ -696,11 +696,11 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
             {rightPanelTab === 'profile' && (
               <div className="space-y-4">
                 <Card className="p-4">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Primary Market</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('screeningRoom.primaryMarket')}</p>
                   <p className="text-base text-slate-900 font-semibold">{activePersona.demographics.segment}</p>
                 </Card>
                 <Card className="p-4">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Background</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('screeningRoom.background')}</p>
                   <p className="text-sm text-slate-600 leading-relaxed">"{activePersona.demographics.background}"</p>
                 </Card>
               </div>
@@ -711,7 +711,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                 {activeReport.answers.map((qa, i) => (
                   <Card key={i} className="p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Goal {i + 1}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('screeningRoom.goalNumber', { number: i + 1 })}</span>
                     </div>
                     <h4 className="text-sm font-semibold text-slate-900 mb-3 leading-snug">{qa.question}</h4>
                     <p className="text-sm text-slate-600 leading-relaxed">"{qa.answer}"</p>
