@@ -355,7 +355,11 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
     console.log(`[Upload] Compression complete for ${uploadId}: ${(compressedSize / 1024 / 1024).toFixed(1)}MB (${compressionResult.compressionRatio.toFixed(1)}x smaller)`);
 
     // Stage 3: Upload compressed proxy to Object Storage
-    const proxyStorageKey = upload.storageKey.replace(/\.[^.]+$/, '_proxy.mp4');
+    // Generate safe proxy key - append _proxy.mp4 while avoiding overwrite of original
+    const extMatch = upload.storageKey.match(/\.[^.]+$/);
+    const proxyStorageKey = extMatch 
+      ? upload.storageKey.replace(/\.[^.]+$/, '_proxy.mp4')
+      : `${upload.storageKey}_proxy.mp4`;
     const proxyFullPath = `${privateDir}/${proxyStorageKey}`;
     const { bucketName: proxyBucket, objectName: proxyObject } = parseObjectPath(proxyFullPath);
 
@@ -425,6 +429,7 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
     const readStream = fs.createReadStream(compressedPath);
     let offset = 0;
     let currentChunk = Buffer.alloc(0);
+    let finalizeResponseText: string | null = null;
 
     for await (const data of readStream) {
       currentChunk = Buffer.concat([currentChunk, data as Buffer]);
@@ -446,9 +451,15 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
           body: chunk,
         });
 
+        const responseText = await uploadResponse.text();
+        
         if (!uploadResponse.ok) {
-          const errText = await uploadResponse.text();
-          throw new Error(`Chunk upload failed at offset ${offset}: ${errText}`);
+          throw new Error(`Chunk upload failed at offset ${offset}: ${responseText}`);
+        }
+
+        // Capture finalize response if this was the last chunk
+        if (isLast) {
+          finalizeResponseText = responseText;
         }
 
         offset += chunk.length;
@@ -467,6 +478,7 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
       }
     }
 
+    // Handle any remaining data that didn't fill a complete chunk
     if (currentChunk.length > 0) {
       const uploadResponse = await fetch(uploadUri, {
         method: 'PUT',
@@ -478,22 +490,67 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
         body: currentChunk,
       });
 
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        throw new Error(`Final chunk upload failed: ${errText}`);
-      }
-
-      console.log(`[Upload] Gemini transfer ${uploadId}: 100% - upload complete, waiting for processing...`);
-
-      const result = await uploadResponse.json();
-      const geminiFile = result.file;
+      const responseText = await uploadResponse.text();
       
-      if (geminiFile?.uri) {
-        await pollForActive(uploadId, geminiFile.name, GEMINI_API_KEY);
-      } else {
-        throw new Error('No file URI in Gemini response');
+      if (!uploadResponse.ok) {
+        throw new Error(`Final chunk upload failed: ${responseText}`);
       }
+
+      finalizeResponseText = responseText;
     }
+
+    // Update progress to processing stage
+    await db
+      .update(uploads)
+      .set({
+        progress: { stage: 'processing', pct: 95, message: 'AI reviewer is processing your video...' },
+        updatedAt: new Date(),
+      })
+      .where(eq(uploads.uploadId, uploadId));
+
+    console.log(`[Upload] Gemini transfer ${uploadId}: 100% - upload complete, waiting for processing...`);
+
+    // Parse finalize response to get Gemini file name
+    // The response can have different structures depending on the API version
+    let geminiFileName: string | null = null;
+    
+    if (finalizeResponseText && finalizeResponseText.trim()) {
+      try {
+        const result = JSON.parse(finalizeResponseText);
+        // Check various possible response structures
+        if (result.file?.name) {
+          geminiFileName = result.file.name;
+        } else if (result.name && result.name.startsWith('files/')) {
+          geminiFileName = result.name;
+        } else if (typeof result === 'object') {
+          // Log the structure for debugging
+          console.log(`[Upload] Finalize response structure:`, JSON.stringify(result).substring(0, 200));
+        }
+        
+        if (geminiFileName) {
+          console.log(`[Upload] Got Gemini file name from finalize response: ${geminiFileName}`);
+        }
+      } catch (e) {
+        console.log(`[Upload] Finalize response not JSON: ${finalizeResponseText.substring(0, 100)}`);
+      }
+    } else {
+      console.log(`[Upload] Finalize response was empty or whitespace`);
+    }
+    
+    // If finalize didn't return file info, try the upload session query as fallback
+    if (!geminiFileName) {
+      console.log(`[Upload] Primary finalize response missing file info, trying session query...`);
+      geminiFileName = await queryUploadSession(uploadUri, GEMINI_API_KEY);
+    }
+    
+    if (!geminiFileName) {
+      // This should not happen with a successful upload - indicates API behavior change
+      console.error(`[Upload] CRITICAL: Gemini upload finalize did not return file info`);
+      console.error(`[Upload] Finalize response: ${finalizeResponseText?.substring(0, 500)}`);
+      throw new Error('Gemini upload completed but file info not returned. Please try again.');
+    }
+    
+    await pollForActive(uploadId, geminiFileName, GEMINI_API_KEY);
 
   } catch (error: any) {
     console.error(`[Upload] Processing error for ${uploadId}:`, error);
@@ -501,6 +558,43 @@ async function compressAndTransferToGemini(uploadId: string): Promise<void> {
   } finally {
     if (tempInputPath) cleanupTempFile(tempInputPath);
     if (compressedPath) cleanupTempFile(compressedPath);
+  }
+}
+
+async function queryUploadSession(uploadUri: string, apiKey: string): Promise<string | null> {
+  try {
+    // Query the resumable upload session to get file status
+    // Using POST with query command as per Gemini resumable upload protocol
+    const response = await fetch(uploadUri, {
+      method: 'POST',
+      headers: {
+        'Content-Length': '0',
+        'X-Goog-Upload-Command': 'query',
+      },
+    });
+    
+    const status = response.headers.get('X-Goog-Upload-Status');
+    console.log(`[Upload] Upload session status: ${status} (HTTP ${response.status})`);
+    
+    if (status === 'final') {
+      const responseText = await response.text();
+      if (responseText && responseText.trim()) {
+        try {
+          const result = JSON.parse(responseText);
+          if (result.file?.name) {
+            console.log(`[Upload] Got file name from session query: ${result.file.name}`);
+            return result.file.name;
+          }
+        } catch (e) {
+          console.log(`[Upload] Session query response not parseable: ${responseText.substring(0, 50)}`);
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`[Upload] Error querying upload session:`, error);
+    return null;
   }
 }
 
@@ -525,7 +619,7 @@ async function pollForActive(uploadId: string, geminiFileName: string, apiKey: s
         .set({
           status: 'ACTIVE',
           geminiFileUri: fileInfo.uri,
-          progress: { stage: 'ready', pct: 100 },
+          progress: { stage: 'ready', pct: 100, message: 'Ready for analysis!' },
           updatedAt: new Date(),
         })
         .where(eq(uploads.uploadId, uploadId));
@@ -541,7 +635,7 @@ async function pollForActive(uploadId: string, geminiFileName: string, apiKey: s
     await db
       .update(uploads)
       .set({
-        progress: { stage: 'processing', pct: 99 },
+        progress: { stage: 'processing', pct: 97, message: 'AI reviewer is getting ready...' },
         updatedAt: new Date(),
       })
       .where(eq(uploads.uploadId, uploadId));
@@ -558,7 +652,7 @@ async function updateUploadError(uploadId: string, error: string): Promise<void>
     .set({
       status: 'FAILED',
       lastError: error,
-      progress: { stage: 'failed', pct: 0 },
+      progress: { stage: 'failed', pct: 0, message: 'Processing failed. Please try again.' },
       updatedAt: new Date(),
     })
     .where(eq(uploads.uploadId, uploadId));

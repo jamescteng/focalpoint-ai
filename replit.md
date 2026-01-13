@@ -19,11 +19,13 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - **Backend**: Express server on port 3001, binding to 0.0.0.0.
 - **API Proxy**: Vite proxies `/api` requests to the Express backend.
 - **Security**: Gemini API key stored as a secret (`GEMINI_API_KEY`) and never exposed to the frontend.
-- **Video Upload** (Direct-to-Storage Architecture):
-    - **Three-Stage Flow**: Browser uploads directly to Object Storage via presigned URL, then server transfers to Gemini in background.
-    - **Stage 1 - Storage Upload**: Frontend requests presigned PUT URL via `/api/uploads/init`, then uploads directly using XMLHttpRequest with progress events (0-40% UI progress).
-    - **Stage 2 - Preparing**: After upload completes, frontend calls `/api/uploads/complete` to verify size, then server transfers to Gemini File API in 16MB chunks (40-95% UI progress).
-    - **Stage 3 - Ready**: Gemini processes file until ACTIVE state (100% UI progress).
+- **Video Upload** (Direct-to-Storage with AI Proxy Architecture):
+    - **Four-Stage Flow**: Browser uploads to Object Storage, server compresses to 720p/10fps "analysis proxy", then transfers proxy to Gemini.
+    - **Stage 1 - Storage Upload** (0-40%): Frontend requests presigned PUT URL via `/api/uploads/init`, uploads directly via XMLHttpRequest.
+    - **Stage 2 - Compression** (40-75%): Server downloads original, compresses to 720p/10fps using FFmpeg (CRF 28, mono audio), stores proxy in Object Storage.
+    - **Stage 3 - Gemini Transfer** (75-95%): Server uploads compressed proxy to Gemini File API in 16MB chunks.
+    - **Stage 4 - Ready** (100%): Gemini processes file until ACTIVE state.
+    - **Benefits**: Dramatically faster Gemini transfers (50-100x smaller files), reduced API costs, original preserved for playback.
     - **Status Polling**: Frontend polls `/api/uploads/status/:uploadId` for progress updates with exponential backoff.
     - **Idempotency**: Same `attemptId` returns same `uploadId`/presigned URL for retry support.
     - **Size Verification**: Server verifies uploaded file size matches declared size (hard failure on mismatch >1KB).

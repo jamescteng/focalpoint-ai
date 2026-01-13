@@ -191,71 +191,67 @@ COMPONENT DETAILS:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                VIDEO UPLOAD FLOW (Direct-to-Storage Architecture)            │
+│           VIDEO UPLOAD FLOW (Direct-to-Storage with AI Proxy)                │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-USER          FRONTEND              BACKEND           OBJECT STORAGE     GEMINI
- │               │                     │                    │               │
- │ Select file   │                     │                    │               │
- │──────────────▶│                     │                    │               │
- │               │                     │                    │               │
- │               │ POST /api/uploads/init                   │               │
- │               │ { filename, size, mimeType, attemptId }  │               │
- │               │────────────────────▶│                    │               │
- │               │                     │                    │               │
- │               │                     │ Generate presigned │               │
- │               │                     │ PUT URL (15min TTL)│               │
- │               │                     │───────────────────▶│               │
- │               │                     │                    │               │
- │               │ { uploadId, putUrl }│                    │               │
- │               │◀────────────────────│                    │               │
- │               │                     │                    │               │
- │ Progress 0-40%│ XHR PUT to presigned URL                 │               │
- │◀──────────────│─────────────────────────────────────────▶│               │
- │               │                     │                    │               │
- │               │ POST /api/uploads/complete               │               │
- │               │ { uploadId }        │                    │               │
- │               │────────────────────▶│                    │               │
- │               │                     │                    │               │
- │               │                     │ Verify size match  │               │
- │               │                     │◀───────────────────│               │
- │               │                     │                    │               │
- │               │ { status: STORED }  │                    │               │
- │               │◀────────────────────│                    │               │
- │               │                     │                    │               │
- │               │                     │ Background job:    │               │
- │               │                     │ Transfer to Gemini │               │
- │               │                     │ (16MB chunks)      │               │
- │               │                     │────────────────────────────────────▶
- │               │                     │                    │               │
- │ Progress      │ Poll GET /api/uploads/status/:uploadId   │               │
- │ 40-95%        │────────────────────▶│                    │               │
- │◀──────────────│◀────────────────────│                    │               │
- │               │                     │                    │  Processing   │
- │               │        ...          │         ...        │      ...      │
- │               │                     │                    │               │
- │               │ { status: ACTIVE,   │                    │ { fileUri }   │
- │ Progress 100% │   geminiFileUri }   │◀───────────────────────────────────│
- │◀──────────────│◀────────────────────│                    │               │
- │               │                     │                    │               │
- │ Ready!        │                     │                    │               │
+USER          FRONTEND         BACKEND              OBJECT STORAGE      GEMINI
+ │               │                 │                      │                │
+ │ Select file   │                 │                      │                │
+ │──────────────▶│                 │                      │                │
+ │               │                 │                      │                │
+ │               │ POST /init      │                      │                │
+ │               │────────────────▶│ Generate presigned   │                │
+ │               │                 │ PUT URL ────────────▶│                │
+ │               │◀────────────────│                      │                │
+ │               │                 │                      │                │
+ │ Progress 0-40%│ XHR PUT         │                      │                │
+ │◀──────────────│─────────────────────────────────────────▶ (Original)    │
+ │               │                 │                      │                │
+ │               │ POST /complete  │                      │                │
+ │               │────────────────▶│ Verify size match    │                │
+ │               │◀────────────────│◀─────────────────────│                │
+ │               │                 │                      │                │
+ │ Progress      │                 │ Download original    │                │
+ │ 40-45%        │ Poll status     │◀─────────────────────│                │
+ │◀──────────────│◀────────────────│                      │                │
+ │               │                 │                      │                │
+ │ Progress      │                 │ FFmpeg compress      │                │
+ │ 45-75%        │ Poll status     │ (720p, 10fps, CRF28) │                │
+ │◀──────────────│◀────────────────│                      │                │
+ │               │                 │                      │                │
+ │ Progress 75%  │                 │ Upload proxy ───────▶│ (Proxy ~50MB)  │
+ │◀──────────────│◀────────────────│                      │                │
+ │               │                 │                      │                │
+ │ Progress      │                 │ Transfer proxy ──────────────────────▶│
+ │ 75-95%        │ Poll status     │ (16MB chunks)        │                │
+ │◀──────────────│◀────────────────│                      │                │
+ │               │                 │                      │   Processing   │
+ │               │        ...      │         ...          │       ...      │
+ │               │                 │                      │                │
+ │ Progress 100% │ { ACTIVE, URI } │◀──────────────────────────────────────│
+ │◀──────────────│◀────────────────│                      │                │
+ │               │                 │                      │                │
+ │ Ready!        │                 │                      │                │
 
 
 UPLOAD STATES:
-  UPLOADING → STORED → TRANSFERRING_TO_GEMINI → ACTIVE
-                                            └─→ FAILED
+  UPLOADING → STORED → COMPRESSING → COMPRESSED → TRANSFERRING_TO_GEMINI → ACTIVE
+                                                                       └─→ FAILED
 
 PROGRESS MAPPING:
-  Stage 1 (Storage Upload):  0-40%   - XHR progress events
-  Stage 2 (Gemini Transfer): 40-95%  - Backend chunk progress
-  Stage 3 (Ready):           100%    - Gemini file ACTIVE
+  Stage 1 (Storage Upload):  0-40%   - XHR progress events (original file)
+  Stage 2 (Compression):     40-75%  - FFmpeg 720p/10fps compression
+  Stage 3 (Gemini Transfer): 75-95%  - Upload compressed proxy to Gemini
+  Stage 4 (Ready):           95-100% - Gemini processes, file ACTIVE
 
 KEY FEATURES:
+  • Original file preserved in storage for playback
+  • 720p/10fps "analysis proxy" for Gemini (50-100x smaller)
+  • Dramatically faster Gemini transfers and reduced API costs
   • Direct browser-to-storage upload bypasses server size limits
-  • Presigned URLs valid for 15 minutes
   • Same attemptId returns same uploadId (idempotency)
   • Server-side size verification (hard failure on mismatch)
-  • MIME type preserved through entire pipeline
+  • User-friendly progress messages at each stage
 ```
 
 ---
