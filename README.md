@@ -7,7 +7,8 @@ Get focus group-style feedback through configurable AI personas, each offering a
 ## Features
 
 - **On-Demand Persona Analysis** - Select one reviewer to start, add more after viewing
-- **Large Video Support** - Upload videos up to 2GB with streaming uploads
+- **Large Video Support** - Upload videos up to 2GB with direct-to-storage streaming
+- **Smart Compression** - Server-side 720p/10fps proxy creation for 50-100x faster AI transfers
 - **Timestamped Feedback** - Every observation links to the exact moment
 - **Structured Reports** - Executive summary, 5 highlights, 5 concerns, research answers
 - **Reviewer Voice Notes** - Audio summaries with personalized opening/closing lines per persona
@@ -88,11 +89,21 @@ Generate natural two-person conversations between any pair of reviewers:
 - Single audio file with distinct voices for each participant
 - **English only** (ElevenLabs API limitation)
 
-## Limits
+## Limits & Performance
 
 - Maximum video size: 2GB
 - Video retention on Gemini: 48 hours
 - 5 highlights + 5 concerns per report (enforced)
+
+### Typical Processing Times (300MB video)
+| Stage | Duration |
+|-------|----------|
+| Upload to storage | ~30-60s (depends on connection) |
+| Compression (720p/10fps) | ~3 minutes |
+| Transfer to Gemini | ~20-40s |
+| Gemini processing | ~60-90s |
+| AI analysis | ~2 minutes |
+| **Total** | **~7-8 minutes** |
 
 ## License
 

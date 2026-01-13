@@ -141,6 +141,9 @@ COMPONENT DETAILS:
 │ • validation.ts     - Shared input validation                               │
 │ • rateLimiting.ts   - Rate limiting configuration                           │
 │                                                                             │
+│ Services (server/services/):                                                │
+│ • videoCompressor.ts - FFmpeg compression (720p, 10fps, CRF 28, mono audio) │
+│                                                                             │
 │ Utilities (server/utils/):                                                  │
 │ • personaAliases.ts - Persona alias generation                              │
 │ • logger.ts         - Centralized logging                                   │
@@ -252,6 +255,15 @@ KEY FEATURES:
   • Same attemptId returns same uploadId (idempotency)
   • Server-side size verification (hard failure on mismatch)
   • User-friendly progress messages at each stage
+
+COMPRESSION SPECS (server/services/videoCompressor.ts):
+  • Resolution: 720p (1280x720, preserves aspect ratio with padding)
+  • Frame rate: 10 fps (sufficient for AI analysis)
+  • Video codec: H.264 (libx264), CRF 28, veryfast preset
+  • Audio: AAC mono, 64kbps
+  • Container: MP4 with faststart for streaming
+  • Typical ratio: 3-5x compression on already-compressed videos
+  • Temp files: /tmp/focalpoint-downloads and /tmp/focalpoint-proxies
 ```
 
 ---

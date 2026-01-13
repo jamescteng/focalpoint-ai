@@ -31,7 +31,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
     - **Size Verification**: Server verifies uploaded file size matches declared size (hard failure on mismatch >1KB).
     - **MIME Type Preservation**: Actual file MIME type flows through entire pipeline.
     - **Presigned URL TTL**: 15 minutes for upload completion.
-    - **Database Tracking**: `uploads` table tracks state machine: UPLOADING → STORED → TRANSFERRING_TO_GEMINI → ACTIVE (or FAILED).
+    - **Database Tracking**: `uploads` table tracks state machine: UPLOADING → STORED → COMPRESSING → COMPRESSED → TRANSFERRING_TO_GEMINI → ACTIVE (or FAILED). Fields include `proxyStorageKey` and `proxySizeBytes` for the compressed proxy.
     - Maximum video size: 2GB.
 - **Persona System**:
     - **"House Style + Persona Edge" pattern**: Shared `HOUSE_STYLE_GUIDELINES`, `OUTPUT_CONSTRAINTS_REMINDER`, and `SUMMARY_READABILITY_GUIDELINES` ensure consistent tone and formatting across all persona analyses, while `RAW_PERSONA_CONFIGS` define unique aspects.
@@ -105,6 +105,7 @@ FocalPoint AI utilizes a React 19 frontend with TypeScript and Vite 6, communica
 - `server/utils/personaAliases.ts` - Persona alias generation utility
 
 ### Server Services
+- `server/services/videoCompressor.ts` - FFmpeg video compression (720p, 10fps, CRF 28)
 - `server/voiceScriptService.ts` - Voice script generation pipeline
 - `server/elevenLabsService.ts` - ElevenLabs API integration for TTS and dialogues
 - `server/dialogueService.ts` - Podcast dialogue script generation
