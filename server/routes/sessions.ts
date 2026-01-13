@@ -24,7 +24,7 @@ function extractYoutubeVideoId(url: string): string | null {
 
 router.post('/', statusLimiter, async (req, res) => {
   try {
-    const { title, synopsis, questions, language, fileUri, fileMimeType, fileName, youtubeUrl } = req.body;
+    const { title, synopsis, questions, language, fileUri, fileMimeType, fileName, youtubeUrl, youtubeEmbeddable } = req.body;
     
     if (!title || typeof title !== 'string' || title.length > MAX_TITLE_LENGTH) {
       return res.status(400).json({ error: 'Invalid title.' });
@@ -45,6 +45,7 @@ router.post('/', statusLimiter, async (req, res) => {
       fileMimeType: fileMimeType || null,
       fileName: fileName || null,
       youtubeUrl: youtubeUrl || null,
+      youtubeEmbeddable: youtubeUrl ? (youtubeEmbeddable ?? null) : null,
       personaAliases,
     });
     
@@ -194,11 +195,13 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
       const author = video.snippet?.channelTitle;
       
       if (privacyStatus === 'public') {
+        const embeddable = video.status?.embeddable ?? true;
         return res.json({ 
           valid: true, 
           title,
           author,
-          privacyStatus: 'public'
+          privacyStatus: 'public',
+          embeddable
         });
       } else if (privacyStatus === 'unlisted') {
         return res.json({ 
@@ -247,7 +250,8 @@ router.post('/validate-youtube', statusLimiter, async (req, res) => {
           valid: true, 
           title: data.title,
           author: data.author_name,
-          warning: 'Could not verify if video is public. Public videos work best.'
+          embeddable: null,
+          warning: 'Could not verify if video is public or embeddable. Public videos work best.'
         });
       } else if (response.status === 401 || response.status === 403) {
         return res.json({ 

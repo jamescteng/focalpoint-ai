@@ -40,6 +40,7 @@ interface YouTubePlayerProps {
   youtubeUrl: string;
   onReady?: (player: YTPlayer) => void;
   className?: string;
+  embeddable?: boolean | null;
 }
 
 function extractYoutubeVideoId(url: string): string | null {
@@ -84,6 +85,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   youtubeUrl,
   onReady,
   className = '',
+  embeddable = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -91,6 +93,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const videoId = extractYoutubeVideoId(youtubeUrl);
+  const youtubeDirectUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : youtubeUrl;
+
+  // If we know embedding is disabled upfront, show the message immediately
+  const embeddingDisabled = embeddable === false;
 
   useEffect(() => {
     if (!videoId) {
@@ -184,15 +190,46 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           </div>
         </div>
       )}
-      {error && (
+      {(error || embeddingDisabled) && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-          <div className="text-center px-4">
-            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <p className="text-sm text-slate-400">{error}</p>
+          <div className="text-center px-6 max-w-md">
+            {(error === 'Video cannot be embedded' || embeddingDisabled) ? (
+              <>
+                <div className="w-14 h-14 bg-slate-700 rounded-2xl flex items-center justify-center mb-4 mx-auto">
+                  <svg className="w-7 h-7 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                  </svg>
+                </div>
+                <h3 className="text-white font-medium text-lg mb-2">Playback Unavailable Here</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                  The video creator has disabled embedding on external sites. 
+                  Your analysis is complete, but you'll need to watch the video directly on YouTube.
+                </p>
+                <a
+                  href={youtubeDirectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                  </svg>
+                  Watch on YouTube
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mb-3 mx-auto">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-slate-400">{error}</p>
+              </>
+            )}
           </div>
         </div>
       )}

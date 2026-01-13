@@ -439,6 +439,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                   youtubeUrl={project.youtubeUrl}
                   onReady={youtubePlayer.setPlayer}
                   className="w-full h-full"
+                  embeddable={project.youtubeEmbeddable}
                 />
               </div>
             ) : project.videoUrl ? (

@@ -421,6 +421,7 @@ export interface DbSession {
   fileSize: number | null;
   fileLastModified: number | null;
   youtubeUrl: string | null;
+  youtubeEmbeddable: boolean | null;
   personaAliases: PersonaAlias[];
   createdAt: string;
   updatedAt: string;
@@ -447,6 +448,7 @@ export const createSession = async (data: {
   fileMimeType?: string;
   fileName?: string;
   youtubeUrl?: string;
+  youtubeEmbeddable?: boolean;
 }): Promise<DbSession> => {
   const response = await fetch('/api/sessions', {
     method: 'POST',

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, varchar, integer, bigint } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, varchar, integer, bigint, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export interface PersonaAlias {
@@ -19,6 +19,7 @@ export const sessions = pgTable("sessions", {
   fileSize: bigint("file_size", { mode: "number" }),
   fileLastModified: bigint("file_last_modified", { mode: "number" }),
   youtubeUrl: text("youtube_url"),
+  youtubeEmbeddable: boolean("youtube_embeddable"),
   personaAliases: jsonb("persona_aliases").$type<PersonaAlias[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

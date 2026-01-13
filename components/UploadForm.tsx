@@ -27,6 +27,7 @@ interface YoutubeValidation {
   title?: string;
   author?: string;
   error?: string;
+  embeddable?: boolean;
 }
 
 export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = false }) => {
@@ -68,6 +69,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
             status: 'valid',
             title: data.title,
             author: data.author,
+            embeddable: data.embeddable,
           });
           setYoutubeError('');
         } else {
@@ -122,6 +124,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
         title,
         synopsis,
         youtubeUrl,
+        youtubeEmbeddable: youtubeValidation.embeddable,
         questions,
         language,
         selectedPersonaIds: [selectedPersonaId]

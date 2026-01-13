@@ -84,6 +84,7 @@ const App: React.FC = () => {
         language: session.language as 'en' | 'zh-TW',
         selectedPersonaIds: uniquePersonaIds,
         youtubeUrl: session.youtubeUrl || undefined,
+        youtubeEmbeddable: session.youtubeEmbeddable ?? undefined,
         videoFingerprint: session.fileName && session.fileSize && session.fileLastModified ? {
           fileName: session.fileName,
           fileSize: session.fileSize,
@@ -164,6 +165,7 @@ const App: React.FC = () => {
         questions: p.questions,
         language: p.language,
         youtubeUrl: p.youtubeUrl,
+        youtubeEmbeddable: p.youtubeEmbeddable ?? undefined,
       });
       sessionId = session.id;
       setCurrentSessionId(sessionId);
