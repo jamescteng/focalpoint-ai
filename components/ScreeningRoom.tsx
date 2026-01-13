@@ -339,17 +339,17 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
-      <header className="border-b border-slate-200/70 px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center bg-white sticky top-0 z-40 gap-3">
+      <header className="border-b border-slate-200/70 px-4 sm:px-6 py-3 sm:py-5 flex justify-between items-start sm:items-center bg-white sticky top-0 z-40 gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight truncate">{project.title}</h2>
-          <div className="flex items-center gap-2 mt-1">
+          <h2 className="text-sm sm:text-xl font-bold text-slate-900 tracking-tight line-clamp-2 sm:line-clamp-1">{project.title}</h2>
+          <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></div>
-            <p className="text-[10px] sm:text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+            <p className="text-[9px] sm:text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
               {t('screeningRoom.reportsGenerated', { count: reports.length })}
             </p>
           </div>
         </div>
-        <Button variant="outline" size="md" className="rounded-lg px-3 sm:px-5 border-slate-200 text-xs sm:text-sm flex-shrink-0" onClick={() => window.location.reload()}>
+        <Button variant="outline" size="md" className="rounded-lg px-2 sm:px-5 py-1.5 sm:py-2 border-slate-200 text-xs sm:text-sm flex-shrink-0" onClick={() => window.location.reload()}>
           <span className="hidden sm:inline">{t('screeningRoom.newScreening')}</span>
           <span className="sm:hidden">+</span>
         </Button>
@@ -365,43 +365,45 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
               <button
                 key={report.personaId}
                 onClick={() => setActiveReportIndex(index)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 sm:gap-2.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg transition-all flex-shrink-0 ${
                   isActive
                     ? 'bg-slate-900 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
+                title={getPersonaDisplayName(persona.id)}
               >
                 <img
                   src={persona.avatar}
                   alt={getPersonaDisplayName(persona.id)}
-                  className="w-7 h-7 rounded-full object-cover"
+                  className="w-5 h-5 sm:w-7 sm:h-7 rounded-full object-cover flex-shrink-0"
                 />
-                <span className="font-semibold text-sm">{getPersonaDisplayName(persona.id)}</span>
+                <span className="font-medium text-[11px] sm:text-sm whitespace-nowrap">{getPersonaDisplayName(persona.id)}</span>
               </button>
             );
           })}
 
           {isAnalyzing && analyzingPersonaId && (
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-blue-50 text-blue-600 whitespace-nowrap">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg bg-blue-50 text-blue-600 flex-shrink-0">
+              <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               </div>
-              <span className="font-semibold text-sm">{t('screeningRoom.analyzing')}</span>
+              <span className="font-medium text-[11px] sm:text-sm whitespace-nowrap">{t('screeningRoom.analyzing')}</span>
             </div>
           )}
 
           {availablePersonas.length > 0 && !isAnalyzing && (
             <button
               onClick={() => setShowAddPersona(v => !v)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-600 transition-all whitespace-nowrap"
+              className="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-4 sm:py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-600 transition-all flex-shrink-0"
+              title={t('screeningRoom.addReviewer')}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span className="font-semibold text-sm">{t('screeningRoom.addReviewer')}</span>
+              <span className="font-medium text-[11px] sm:text-sm whitespace-nowrap">{t('screeningRoom.addReviewer')}</span>
             </button>
           )}
         </div>
