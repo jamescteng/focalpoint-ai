@@ -33,11 +33,11 @@ export const LanguageSwitcher: React.FC = () => {
     <div ref={dropdownRef} className="relative pointer-events-auto">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors shadow-sm"
+        className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg sm:rounded-xl hover:border-slate-400 transition-colors shadow-sm"
         aria-label="Change language"
       >
         <svg 
-          className="w-5 h-5 text-slate-600" 
+          className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"

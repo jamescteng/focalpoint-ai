@@ -339,23 +339,24 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
-      <header className="border-b border-slate-200/70 px-6 py-5 flex justify-between items-center bg-white sticky top-0 z-40">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{project.title}</h2>
+      <header className="border-b border-slate-200/70 px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center bg-white sticky top-0 z-40 gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight truncate">{project.title}</h2>
           <div className="flex items-center gap-2 mt-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-            <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></div>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
               {t('screeningRoom.reportsGenerated', { count: reports.length })}
             </p>
           </div>
         </div>
-        <Button variant="outline" size="md" className="rounded-lg px-5 border-slate-200" onClick={() => window.location.reload()}>
-          {t('screeningRoom.newScreening')}
+        <Button variant="outline" size="md" className="rounded-lg px-3 sm:px-5 border-slate-200 text-xs sm:text-sm flex-shrink-0" onClick={() => window.location.reload()}>
+          <span className="hidden sm:inline">{t('screeningRoom.newScreening')}</span>
+          <span className="sm:hidden">+</span>
         </Button>
       </header>
 
-      <div className="border-b border-slate-200/70 px-6 py-3 bg-white">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      <div className="border-b border-slate-200/70 px-4 sm:px-6 py-2 sm:py-3 bg-white">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
           {reports.map((report, index) => {
             const persona = PERSONAS.find(p => p.id === report.personaId);
             if (!persona) return null;
@@ -446,8 +447,8 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
         </div>
       )}
 
-      <main className="flex-1 grid grid-cols-1 xl:grid-cols-12">
-        <div className="xl:col-span-8 p-6 lg:p-8 overflow-y-auto space-y-6 border-r border-slate-200/70">
+      <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12">
+        <div className="lg:col-span-8 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-4 sm:space-y-6 lg:border-r border-slate-200/70">
           
           <section>
             <input
@@ -657,7 +658,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
           </section>
         </div>
 
-        <div className="xl:col-span-4 bg-white flex flex-col sticky top-[73px] h-[calc(100vh-73px)] overflow-y-auto">
+        <div className="lg:col-span-4 bg-white flex flex-col lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] overflow-y-auto border-t lg:border-t-0 border-slate-200/70">
           
           <div className="p-6 border-b border-slate-100">
             <div className="flex flex-col items-center text-center mb-6">

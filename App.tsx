@@ -327,26 +327,26 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fdfdfd] text-slate-900 selection:bg-slate-900 selection:text-white font-sans overflow-x-hidden">
-      <nav className="fixed top-0 left-0 w-full p-8 md:p-12 flex justify-between items-center z-50 pointer-events-none">
-        <div className="flex items-center gap-6 pointer-events-auto group cursor-pointer" onClick={startNewSession}>
-          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center rotate-12 shadow-xl transition-transform group-hover:rotate-0">
-            <div className="w-5 h-5 bg-white rounded-lg -rotate-12 group-hover:rotate-0 transition-transform" />
+      <nav className="fixed top-0 left-0 w-full px-4 py-4 sm:px-6 sm:py-6 md:px-12 md:py-8 flex justify-between items-center z-50 pointer-events-none">
+        <div className="flex items-center gap-2 sm:gap-4 md:gap-6 pointer-events-auto group cursor-pointer" onClick={startNewSession}>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-slate-900 rounded-xl sm:rounded-2xl flex items-center justify-center rotate-12 shadow-xl transition-transform group-hover:rotate-0">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 bg-white rounded-md sm:rounded-lg -rotate-12 group-hover:rotate-0 transition-transform" />
           </div>
-          <span className="text-3xl tracking-tight font-bold">FocalPoint</span>
+          <span className="text-lg sm:text-2xl md:text-3xl tracking-tight font-bold">FocalPoint</span>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <LanguageSwitcher />
           {sessions.length > 0 && (
             <button
               onClick={() => setShowSessionList(!showSessionList)}
-              className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors shadow-sm"
+              className="pointer-events-auto flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg sm:rounded-xl hover:border-slate-400 transition-colors shadow-sm"
             >
-              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-sm font-medium text-slate-700">{t('nav.history')}</span>
-              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sessions.length}</span>
+              <span className="hidden sm:inline text-sm font-medium text-slate-700">{t('nav.history')}</span>
+              <span className="text-xs bg-slate-100 text-slate-600 px-1.5 sm:px-2 py-0.5 rounded-full">{sessions.length}</span>
             </button>
           )}
         </div>
@@ -355,7 +355,7 @@ const App: React.FC = () => {
       {showSessionList && (
         <div className="fixed inset-0 bg-black/20 z-50" onClick={() => setShowSessionList(false)}>
           <div 
-            className="absolute top-24 right-8 md:right-12 w-80 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50"
+            className="absolute top-16 sm:top-20 md:top-24 right-4 sm:right-6 md:right-12 w-[calc(100vw-2rem)] sm:w-80 max-h-[70vh] bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-4 border-b border-slate-100 flex justify-between items-center">
