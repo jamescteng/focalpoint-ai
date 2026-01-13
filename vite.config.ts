@@ -8,6 +8,9 @@ export default defineConfig(() => {
         port: 5000,
         host: '0.0.0.0',
         allowedHosts: true as const,
+        watch: {
+          ignored: ['**/.cache/**']
+        },
         proxy: {
           '/api': {
             target: 'http://localhost:3001',
