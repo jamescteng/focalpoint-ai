@@ -1,0 +1,85 @@
+What you’ve got right
+
+{} as the error object
+Correct: Error objects don’t JSON-serialize well. If you log them via JSON.stringify(err) you’ll usually get {}. This masks the real reason.
+
+EADDRINUSE 0.0.0.0:3001 is a real, primary failure
+Correct: if your backend fails to bind, you can end up with:
+
+stale server instance handling some requests
+
+new instance crashing/restarting
+
+intermittent connectivity / “connection lost” in the frontend dev server logs (especially if the dev environment is restarting processes)
+
+“It worked after killing stuck processes and restarting cleanly”
+That outcome strongly supports “process-level instability” as at least one root contributor.
+
+Where I would be more careful
+A) “Vite kept disconnecting and reconnecting” is not necessarily “server crashed”
+
+Vite’s HMR “server connection lost” can also occur due to:
+
+browser losing the websocket due to network hiccups
+
+proxy restarts
+
+tab reloads
+
+the frontend server restarting while the backend stays up
+
+So treat “Vite connection lost” as a symptom, not proof of backend crash.
+
+B) “When the analysis finished and tried to save the report, the server had just crashed” is plausible but not proven
+
+That story is coherent, but to assert it confidently you should confirm which endpoint failed at that moment:
+
+Was it /api/sessions/save (or similar)?
+
+Or an external fetch (YouTube, ElevenLabs)?
+
+Or even a client→backend call hitting the wrong origin/port?
+
+The fact that “SUCCESS and ERROR logged at the exact same timestamp” could also mean:
+
+two different async operations completed at the same time (one succeeded, one failed)
+
+the UI logged success after parsing response, then immediately did a second call that failed
+
+How to make this airtight (so your team can stop debating)
+
+If you want to solidify your conclusion (and prevent recurrence), add two minimal improvements:
+
+1) Correlation IDs end-to-end
+
+Generate requestId per user action (analyze / save).
+
+Send it in a header (X-Request-Id) to backend.
+
+Log it in backend for every route.
+Then your “SUCCESS and ERROR same timestamp” becomes clearly attributable to which request.
+
+2) Always log the failing URL + route
+
+On frontend, wrap fetch so you always log:
+
+method, url
+
+status (if any)
+
+err.message / err.cause (if thrown)
+
+On backend, for each route:
+
+log start/end with status and duration
+
+log crash/restart events clearly
+
+Bottom line judgment
+
+Yes, “port 3001 conflict” is a credible root cause of the old instability, and your narrative is consistent with the symptoms and the “fixed after killing processes” result.
+
+But you should present it internally as:
+Root cause: backend process duplication / port conflict causing restarts and intermittent availability
+Amplifier: insufficient error logging (frontend {}) and lack of correlation IDs made it look like random fetch failures
+Follow-up: add correlation IDs + better error serialization to make future incidents diagnosable in one run

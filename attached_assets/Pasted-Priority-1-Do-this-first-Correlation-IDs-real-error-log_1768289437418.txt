@@ -1,0 +1,173 @@
+Priority 1 (Do this first): Correlation IDs + “real” error logging
+Goal
+
+When something fails, we can answer in one minute:
+
+Which request/action failed?
+
+Which endpoint failed?
+
+Was it client→server or server→external API?
+
+What was the actual error code/message/cause?
+
+Scope
+
+Add a requestId (“correlation ID”) to every UI action and propagate through:
+
+frontend → backend routes
+
+backend internal steps (Gemini upload, polling, analyze, save)
+
+backend outbound fetch calls (YouTube, ElevenLabs, etc.)
+
+Fix {} error problem by logging message, stack, and cause.
+
+A) Frontend changes (React)
+1) Generate a requestId per user action
+
+For each user-triggered workflow (upload, analyze, add reviewer, save session, generate audio):
+
+const requestId = crypto.randomUUID()
+
+Save it to local state so logs for that action share the same id.
+
+2) Wrap fetch in a single helper
+
+Create client/api.ts:
+
+Always include headers:
+
+X-Request-Id: <uuid>
+
+Content-Type if needed
+
+On non-2xx:
+
+read response text (truncate to 2KB)
+
+throw an Error with status, url, and body snippet
+
+On thrown errors:
+
+log a structured object:
+
+requestId, url, method
+
+message, name, stack
+
+if present: (err as any).cause
+
+This ensures you never see {} again.
+
+3) Log which endpoint failed
+
+When you catch errors in UI:
+
+log requestId + endpoint URL + status/body snippet
+
+show user a short error message containing requestId so you can trace it in backend logs.
+
+B) Backend changes (Express)
+1) Request ID middleware
+
+Add middleware near the top:
+
+Read X-Request-Id header.
+
+If missing, generate one.
+
+Attach to req.requestId.
+
+Set response header X-Request-Id as well.
+
+2) Structured request logging
+
+For every request:
+
+Log at start:
+
+requestId, method, path
+
+Log at end:
+
+requestId, status, durationMs
+
+3) Global error handler
+
+Ensure the error handler logs:
+
+requestId
+
+err.name, err.message, err.stack
+
+err.cause (if any)
+
+return a sanitized response to client:
+
+{ error: "Internal error", requestId }
+
+4) Wrap outbound fetch calls
+
+Create a fetchWithTrace(requestId, url, options) helper that logs:
+
+before: requestId, host, path
+
+after: status, duration
+
+on error: code/message/cause + URL
+
+If YouTube/ElevenLabs fails, you’ll see it instantly in server logs tied to the same requestId as the UI action.
+
+C) “Port already in use” guard (optional but quick win)
+
+In dev, add a startup log that includes PID and port, and ensure your dev script doesn’t spawn multiple backends.
+
+If your environment supports it:
+
+add a prestart step that checks port 3001 and fails fast with a clear message.
+
+Priority 2 (After logging is in): Install Tailwind properly (PostCSS/Vite)
+Why second?
+
+Tailwind build changes can create churn (CSS regressions, config issues). Logging changes are low-risk and immediately useful.
+
+Goal
+
+Remove cdn.tailwindcss.com and ship a production build with:
+
+tree-shaken CSS
+
+predictable styling
+
+faster loads
+
+Concrete steps
+
+Install:
+
+tailwindcss postcss autoprefixer
+
+Add tailwind.config.(js|ts) with content pointing to your React files
+
+Add postcss.config.js
+
+Create src/styles.css with:
+
+@tailwind base;
+
+@tailwind components;
+
+@tailwind utilities;
+
+Import styles.css in your React entry (main.tsx / index.tsx)
+
+Remove the Tailwind CDN script from index.html
+
+Decision for your dev (what to do now)
+
+Do both, in this order:
+
+Correlation IDs + error serialization + fetchWithTrace (1 PR)
+
+Tailwind PostCSS migration (2nd PR)
