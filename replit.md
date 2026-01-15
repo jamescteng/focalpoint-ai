@@ -34,8 +34,8 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 | `components/UploadForm.tsx` | Video upload + metadata |
 | `components/VoicePlayer.tsx` | Voice note playback |
 | `components/DialoguePlayer.tsx` | Podcast playback |
-| `src/i18n.ts` | i18n config |
-| `src/locales/` | EN + zh-TW translations |
+| `src/i18n.ts` | i18n config (default: zh-TW) |
+| `src/locales/` | zh-TW (default) + EN translations |
 
 ### Shared
 | File | Purpose |
