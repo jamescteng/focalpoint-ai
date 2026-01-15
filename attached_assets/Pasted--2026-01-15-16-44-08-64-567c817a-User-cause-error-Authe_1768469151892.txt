@@ -1,0 +1,113 @@
+
+2026-01-15 16:44:08.64
+567c817a
+User
+cause: error: Authentication timed out
+2026-01-15 16:44:08.64
+567c817a
+User
+constraint: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+],
+2026-01-15 16:44:08.64
+567c817a
+User
+hint: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+schema: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+'2026-01-15T08:43:39.848Z',
+2026-01-15 16:44:08.64
+567c817a
+User
+}
+2026-01-15 16:44:08.64
+567c817a
+User
+internalQuery: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+detail: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-15 16:44:08.64
+567c817a
+User
+position: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+at async (/home/runner/workspace/server/uploadRoutes.ts:362:11) {
+2026-01-15 16:44:08.64
+567c817a
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-15 16:44:08.64
+567c817a
+User
+'upl_0a309bfefd164a96913269284753ea07'
+2026-01-15 16:44:08.64
+567c817a
+User
+column: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+params: {"stage":"compressing","pct":54,"message":"Compressing: 31%"},2026-01-15T08:43:39.848Z,upl_0a309bfefd164a96913269284753ea07
+2026-01-15 16:44:08.64
+567c817a
+User
+at async (/home/runner/workspace/server/uploadRoutes.ts:362:11) {
+2026-01-15 16:44:08.64
+567c817a
+User
+at /home/runner/workspace/node_modules/pg-pool/index.js:45:11
+2026-01-15 16:44:08.64
+567c817a
+User
+severity: 'ERROR',
+2026-01-15 16:44:08.64
+567c817a
+User
+query: 'update "uploads" set "progress" = $1, "updated_at" = $2 where "uploads"."upload_id" = $3',
+2026-01-15 16:44:08.64
+567c817a
+User
+where: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/src/pg-core/session.ts:73:11)
+2026-01-15 16:44:08.64
+567c817a
+User
+dataType: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+[FocalPoint][FATAL] Unhandled Rejection: DrizzleQueryError: Failed query: update "uploads" set "progress" = $1, "updated_at" = $2 where "uploads"."upload_id" = $3
+2026-01-15 16:44:08.64
+567c817a
+User
+file: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+code: '08P01',
+2026-01-15 16:44:08.64
+567c817a
+User
+table: undefined,
+2026-01-15 16:44:08.64
+567c817a
+User
+routine: undefined

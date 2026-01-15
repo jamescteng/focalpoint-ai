@@ -1,0 +1,198 @@
+What the log clearly tells us (facts)
+
+The failing statement is:
+
+update "uploads" set "progress" = $1, "updated_at" = $2 where "uploads"."upload_id" = $3
+
+The parameters include a JSON progress payload:
+
+{"stage":"compressing","pct":54,"message":"Compressing: 31%"}
+
+The PG error code is:
+
+08P01
+
+The stack points to:
+
+Drizzle prepared query execution (NodePgPreparedQuery.queryWithCache)
+
+then server/uploadRoutes.ts:362
+
+So the failure occurs in the “update progress” call path (not in FFmpeg itself).
+
+Why your dev’s root cause is questionable
+1) 08P01 is “protocol violation”, not “idle timeout”
+
+Postgres error class 08*** relates to connection/transport/protocol issues.
+08P01 in particular is typically raised when the server considers the connection stream invalid (bad protocol state / unexpected message). This often happens when:
+
+the connection was abruptly terminated or half-closed by proxy/network,
+
+you tried to reuse a broken client connection,
+
+there was a low-level driver/proxy disruption.
+
+It is not the standard signature of “idle-in-transaction timeout” or “connection idle timeout”. Those tend to show up as different messages/codes (and often as explicit “terminating connection due to idle…” server messages).
+
+2) “Authentication timed out” points to handshake / proxy / pool lifecycle
+
+If the error message really includes “Authentication timed out”, that suggests the connection establishment or re-auth step failed or the proxy rejected the session. With Neon (and similar serverless Postgres), this can happen due to:
+
+intermittent network hiccups between your runtime and Neon,
+
+exhausting/overusing connections (too many new handshakes),
+
+connection being killed by provider, then client reusing it incorrectly,
+
+long CPU-bound tasks starving the event loop so heartbeats/timeouts get missed.
+
+3) Compression itself doesn’t keep a DB connection “idle”
+
+Unless your code is explicitly holding a DB connection open across the entire FFmpeg run (e.g., starting a transaction and not releasing it), a pool connection is not “sitting idle” because FFmpeg is running. The pool returns connections per query.
+
+The actual failure is more likely:
+
+the process became stressed / blocked, leading to network timeouts,
+
+pool misconfiguration in production,
+
+connection dropped and not being replaced cleanly,
+
+too frequent progress writes causing churn/reconnects.
+
+What I would ask the dev to check (no guessing; quick validations)
+A) Are you holding a transaction or connection open across FFmpeg?
+
+In uploadRoutes.ts around line ~362:
+
+If you do something like db.transaction(async (tx) => { await runFfmpeg(); await tx.update(...); })
+that would indeed keep a connection open for minutes. If so, fix: never wrap FFmpeg in a DB transaction.
+
+B) How often are you updating progress?
+
+If you update progress every second (or worse), you create:
+
+lots of DB traffic,
+
+possible connection churn under serverless Postgres constraints,
+
+a larger chance of hitting transient network errors.
+
+C) Is the Node event loop blocked?
+
+If FFmpeg progress parsing or compression orchestration is CPU-heavy in the same Node process, the event loop can stall, making socket timeouts more likely.
+
+D) Pool config in production (Neon + pg-pool)
+
+Key settings to inspect:
+
+max connections
+
+idle timeout
+
+connection timeout
+
+statement timeout
+
+keep-alive
+
+A better “production-grade” fix plan (concrete and safe)
+1) Make progress updates best-effort and rate-limited
+
+Progress should never be able to kill the workflow.
+
+Update DB progress at most every 2–5 seconds, or only on >= 5% change.
+
+If a progress update fails, log it and continue. Do not fail the upload job.
+
+This alone will remove “progress write killed the job”.
+
+2) Add targeted retry with reconnect (but do it correctly)
+
+Your dev proposed “retry with fresh connection”—good direction, but do it with guardrails:
+
+Retry only for transient connection errors (08P01, ECONNRESET, “timeout”, etc.)
+
+Use exponential backoff (e.g., 200ms → 500ms → 1s)
+
+Max 3 attempts
+
+On retry, ensure you don’t reuse a broken client (depends on Drizzle driver usage)
+
+3) Decouple progress persistence from the critical path
+
+Best practice for these pipelines:
+
+Store progress in memory (or Redis) as the “source of truth” during processing.
+
+Persist to Postgres less frequently or at milestones:
+
+“compressing started”
+
+“compressing 25%”
+
+“compressing 50%”
+
+“compressing done”
+
+“uploading to Gemini started”
+
+etc.
+
+If you don’t have Redis, a simple in-memory map + periodic flush is fine for MVP.
+
+4) Ensure FFmpeg work is isolated from DB operations
+
+Run FFmpeg as a child process (you probably already do)
+
+Parse progress on stdout/stderr
+
+Don’t do heavy parsing/computation per progress event
+
+Don’t hold DB connections open while waiting for FFmpeg
+
+5) Add “milestone writes” + final write must succeed
+
+Make the “final state write” (completed/failed) strict, but intermediate progress tolerant.
+
+What I would tell your dev to change in their explanation
+
+Your dev’s narrative should be reframed as:
+
+Observed: DB update failed mid-compression with 08P01 / auth timeout.
+
+Likely class: transient connection/proxy issue with serverless Postgres while the job runs.
+
+Fix: make progress updates tolerant + rate-limited + retry on transient errors; do not let progress writes fail the job; avoid holding transactions open.
+
+This is both more accurate and more aligned with production best practice.
+
+Quick checklist you can hand them (actionable)
+
+Inspect uploadRoutes.ts:362 for:
+
+any transaction scope around FFmpeg
+
+any long-lived db client usage
+
+Change progress writes:
+
+throttle to every 2–5s or 5% increments
+
+wrap in try/catch and do not fail job
+
+Add retryProgressUpdate():
+
+retry 3x on transient codes (08P01, ETIMEDOUT, ECONNRESET)
+
+Add one “finalize upload” write:
+
+strict; if it fails, retry longer / alert
+
+Capture and log:
+
+requestId/jobId/uploadId
+
+DB pool stats if possible
+
+exact error message + code (not {})

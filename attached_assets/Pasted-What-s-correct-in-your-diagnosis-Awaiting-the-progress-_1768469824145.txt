@@ -1,0 +1,139 @@
+What’s correct in your diagnosis
+
+Awaiting the progress callback makes DB the critical path. If the DB write stalls or fails, you stall/fail compression. That matches the log.
+
+No rate limiting is a problem. FFmpeg progress events can be very high frequency; even “successful” DB writes will create unnecessary load and increase the chance of transient Neon/proxy failures.
+
+No error tolerance is the core bug. Progress is telemetry; it must never be fatal.
+
+No transaction across FFmpeg is good. So your fix can stay local to progress updates.
+
+Two changes I recommend to your plan (important)
+1) “Update progress without waiting for confirmation” needs a guard
+
+If you just “fire and forget” on every event, you can create unbounded concurrency (dozens of in-flight DB writes). That can make Neon/proxy issues worse.
+
+What you want is:
+
+throttle to every 5s (good), and
+
+ensure only one in-flight progress write at a time
+
+coalesce updates: if new progress arrives while one write is in-flight, keep only the latest and flush it next
+
+This gives you non-blocking behavior without flooding the DB.
+
+2) “Strict milestone writing with retries” is the right concept, but define milestones explicitly
+
+Make only a small set of states “must persist”:
+
+COMPRESS_STARTED
+
+COMPRESS_DONE (with output file size)
+
+GEMINI_UPLOAD_STARTED
+
+GEMINI_UPLOAD_DONE (fileUri)
+
+PROCESSING_ACTIVE
+
+JOB_FAILED (error summary)
+
+These should use stronger retry/backoff and should be the only points that can block the pipeline (and even then, avoid infinite waiting).
+
+Concrete implementation guidance (hand this to your dev)
+A) Progress updates: throttled, non-fatal, coalesced
+
+Rules:
+
+write at most once per 5 seconds OR on ≥5% increment (choose one; time-based is simplest)
+
+never throw from progress update
+
+never await progress update in the FFmpeg callback path
+
+keep at most 1 in-flight write; coalesce latest progress
+
+Pseudo-structure:
+
+lastFlushAt
+
+inFlight: Promise<void> | null
+
+pendingProgress: ProgressPayload | null
+
+When FFmpeg emits progress:
+
+update pendingProgress
+
+if inFlight exists, return
+
+if not time to flush, return
+
+start flush() async (do not await)
+
+flush():
+
+set inFlight
+
+take pendingProgress snapshot
+
+attempt DB update with limited retry (see below)
+
+clear inFlight
+
+if pendingProgress changed during write, schedule another flush (respect throttle)
+
+B) Retry only transient failures
+
+Retry progress update when:
+
+PG code 08P01
+
+network errors like ECONNRESET, ETIMEDOUT
+
+messages containing “timeout”, “connection terminated”, “Authentication timed out”
+
+Retry policy (progress updates):
+
+max 3 attempts
+
+backoff: 200ms → 500ms → 1000ms (+ jitter)
+
+if still failing: log and drop (do not fail job)
+
+C) Milestone writes: strict with stronger retries
+
+For milestones, do:
+
+max 8 attempts
+
+backoff: 250ms → … → 5s cap
+
+if still failing after N attempts:
+
+mark job as failed (or at minimum log “milestone persistence failed” and surface in UI)
+
+D) Logging requirements
+
+Every progress/milestone log line must include:
+
+uploadId
+
+jobId
+
+requestId (if available)
+
+stage + pct + message
+
+attempt number for retries
+This lets you correlate DB errors with pipeline stage.
+
+One more “gotcha” to prevent
+
+Do not store huge JSON blobs too frequently.
+Your progress field looks like JSON text. That’s fine, but:
+
+keep it small (stage, pct, short message)
+
+avoid writing large structured objects on every tick
