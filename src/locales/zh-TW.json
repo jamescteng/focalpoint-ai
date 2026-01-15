@@ -150,7 +150,8 @@
     "loading": "載入中...",
     "error": "錯誤",
     "retry": "重試",
-    "close": "關閉"
+    "close": "關閉",
+    "optional": "選填"
   },
   "youtubePlayer": {
     "invalidUrl": "無效的 YouTube 網址",

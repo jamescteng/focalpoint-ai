@@ -150,7 +150,8 @@
     "loading": "Loading...",
     "error": "Error",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "optional": "Optional"
   },
   "youtubePlayer": {
     "invalidUrl": "Invalid YouTube URL",
