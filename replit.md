@@ -23,6 +23,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 | `server/middleware/rateLimiting.ts` | Rate limit configs |
 | `server/services/videoCompressor.ts` | FFmpeg 720p/10fps compression |
 | `server/services/compressionDecider.ts` | Smart compression decision logic (TDD) |
+| `server/services/progressManager.ts` | Resilient DB updates with retry, throttling, milestones |
 | `server/personas.ts` | AI persona definitions |
 | `server/geminiService.ts` | Gemini API wrapper |
 | `server/elevenLabsService.ts` | TTS integration |
