@@ -342,7 +342,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                     placeholder="https://youtube.com/watch?v=..."
                     value={youtubeUrl}
                     onChange={(e) => handleYoutubeUrlChange(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all text-slate-900 placeholder:text-slate-300"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-base sm:text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all text-slate-900 placeholder:text-slate-300"
                   />
                   {youtubeValidation.status === 'validating' ? (
                     <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
@@ -379,7 +379,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
             </div>
             <textarea
               required
-              className="w-full h-48 bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none resize-none text-sm leading-relaxed text-slate-900 placeholder:text-slate-300"
+              className="w-full h-48 bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none resize-none text-base sm:text-sm leading-relaxed text-slate-900 placeholder:text-slate-300"
               placeholder={t('uploadForm.synopsisPlaceholder')}
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
@@ -458,7 +458,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
             {questions.map((q, i) => (
               <div key={i} className="flex gap-2 group">
                 <input
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-300"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-base sm:text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-300"
                   placeholder={t('uploadForm.questionPlaceholder')}
                   value={q}
                   onChange={(e) => updateQuestion(i, e.target.value)}
