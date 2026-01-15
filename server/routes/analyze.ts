@@ -34,6 +34,143 @@ interface AnalyzeRequest {
   personaIds: string[];
 }
 
+const PRIMARY_MODEL = "gemini-3-pro-preview";
+const FALLBACK_MODEL = "gemini-2.5-flash";
+
+function isModelOverloadedError(error: any): boolean {
+  const message = error?.message || '';
+  const status = error?.status;
+  return (
+    status === 503 ||
+    message.includes('503') ||
+    message.includes('overloaded') ||
+    message.includes('UNAVAILABLE')
+  );
+}
+
+async function callGeminiWithFallback(
+  ai: GoogleGenAI,
+  persona: PersonaConfig,
+  params: {
+    title: string;
+    synopsis: string;
+    srtContent: string;
+    questions: string[];
+    langName: string;
+    fileUri?: string;
+    fileMimeType?: string;
+    youtubeUrl?: string;
+  }
+): Promise<{ response: any; modelUsed: string }> {
+  const systemInstruction = persona.systemInstruction(params.langName);
+  const userPrompt = persona.userPrompt({
+    title: params.title,
+    synopsis: params.synopsis,
+    srtContent: params.srtContent,
+    questions: params.questions,
+    langName: params.langName
+  });
+
+  const videoPart = params.youtubeUrl
+    ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
+    : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
+
+  const requestConfig = {
+    contents: {
+      parts: [
+        videoPart,
+        { text: userPrompt }
+      ]
+    },
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          executive_summary: { type: Type.STRING },
+          highlights: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                timestamp: { type: Type.STRING },
+                seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+                summary: { type: Type.STRING },
+                why_it_works: { type: Type.STRING },
+                category: { type: Type.STRING, enum: persona.highlightCategories }
+              },
+              required: ["timestamp", "seconds", "summary", "why_it_works", "category"]
+            }
+          },
+          concerns: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                timestamp: { type: Type.STRING },
+                seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+                issue: { type: Type.STRING },
+                impact: { type: Type.STRING },
+                severity: { type: Type.NUMBER },
+                category: { type: Type.STRING, enum: persona.concernCategories },
+                suggested_fix: { type: Type.STRING }
+              },
+              required: ["timestamp", "seconds", "issue", "impact", "severity", "category", "suggested_fix"]
+            }
+          },
+          answers: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                question: { type: Type.STRING },
+                answer: { type: Type.STRING }
+              },
+              required: ["question", "answer"]
+            }
+          }
+        },
+        required: ["executive_summary", "highlights", "concerns", "answers"]
+      }
+    }
+  };
+
+  FocalPointLogger.info("API_Call", { 
+    model: PRIMARY_MODEL, 
+    persona: persona.id, 
+    fileUri: params.fileUri,
+    youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined
+  });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: PRIMARY_MODEL,
+      ...requestConfig
+    });
+    return { response, modelUsed: PRIMARY_MODEL };
+  } catch (primaryError: any) {
+    if (isModelOverloadedError(primaryError)) {
+      FocalPointLogger.warn("Model_Fallback", `${PRIMARY_MODEL} overloaded (503), falling back to ${FALLBACK_MODEL}`);
+      
+      FocalPointLogger.info("API_Call", { 
+        model: FALLBACK_MODEL, 
+        persona: persona.id, 
+        fileUri: params.fileUri,
+        youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined,
+        fallback: true
+      });
+
+      const response = await ai.models.generateContent({
+        model: FALLBACK_MODEL,
+        ...requestConfig
+      });
+      return { response, modelUsed: FALLBACK_MODEL };
+    }
+    throw primaryError;
+  }
+}
+
 async function analyzeWithPersona(
   ai: GoogleGenAI,
   persona: PersonaConfig,
@@ -47,92 +184,9 @@ async function analyzeWithPersona(
     fileMimeType?: string;
     youtubeUrl?: string;
   }
-): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[] }> {
-  const modelName = "gemini-3-pro-preview";
-  
+): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[]; modelUsed?: string }> {
   try {
-    const systemInstruction = persona.systemInstruction(params.langName);
-    const userPrompt = persona.userPrompt({
-      title: params.title,
-      synopsis: params.synopsis,
-      srtContent: params.srtContent,
-      questions: params.questions,
-      langName: params.langName
-    });
-
-    const videoSource = params.youtubeUrl || params.fileUri;
-    FocalPointLogger.info("API_Call", { 
-      model: modelName, 
-      persona: persona.id, 
-      fileUri: params.fileUri,
-      youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined
-    });
-
-    const videoPart = params.youtubeUrl
-      ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
-      : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: {
-        parts: [
-          videoPart,
-          { text: userPrompt }
-        ]
-      },
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            executive_summary: { type: Type.STRING },
-            highlights: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  timestamp: { type: Type.STRING },
-                  seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
-                  summary: { type: Type.STRING },
-                  why_it_works: { type: Type.STRING },
-                  category: { type: Type.STRING, enum: persona.highlightCategories }
-                },
-                required: ["timestamp", "seconds", "summary", "why_it_works", "category"]
-              }
-            },
-            concerns: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  timestamp: { type: Type.STRING },
-                  seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
-                  issue: { type: Type.STRING },
-                  impact: { type: Type.STRING },
-                  severity: { type: Type.NUMBER },
-                  category: { type: Type.STRING, enum: persona.concernCategories },
-                  suggested_fix: { type: Type.STRING }
-                },
-                required: ["timestamp", "seconds", "issue", "impact", "severity", "category", "suggested_fix"]
-              }
-            },
-            answers: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING },
-                  answer: { type: Type.STRING }
-                },
-                required: ["question", "answer"]
-              }
-            }
-          },
-          required: ["executive_summary", "highlights", "concerns", "answers"]
-        }
-      }
-    });
+    const { response, modelUsed } = await callGeminiWithFallback(ai, persona, params);
 
     const text = response.text;
     if (!text) {
@@ -164,6 +218,8 @@ async function analyzeWithPersona(
       FocalPointLogger.warn("Validation", `[${persona.id}] ${validationWarnings.join("; ")}`);
     }
 
+    FocalPointLogger.info("API_Success", { persona: persona.id, modelUsed });
+
     return {
       personaId: persona.id,
       status: 'success',
@@ -173,7 +229,8 @@ async function analyzeWithPersona(
         concerns: report.concerns,
         answers: report.answers
       },
-      validationWarnings: validationWarnings.length > 0 ? validationWarnings : undefined
+      validationWarnings: validationWarnings.length > 0 ? validationWarnings : undefined,
+      modelUsed
     };
   } catch (error: any) {
     FocalPointLogger.error("API_Call", `[${persona.id}] ${error.message}`);
