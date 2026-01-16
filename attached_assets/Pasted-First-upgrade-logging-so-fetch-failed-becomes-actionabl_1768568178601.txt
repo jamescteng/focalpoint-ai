@@ -1,0 +1,122 @@
+First: upgrade logging so “fetch failed” becomes actionable
+
+Right now you’re logging only the top-level exception. With undici, the important data is usually in err.cause.
+
+Add this helper and use it everywhere you call Gemini:
+
+function serializeFetchError(err: any) {
+  const cause = err?.cause;
+  return {
+    name: err?.name,
+    message: err?.message,
+    stack: err?.stack,
+    cause: cause
+      ? {
+          name: cause?.name,
+          message: cause?.message,
+          code: cause?.code,          // e.g. ECONNRESET, ETIMEDOUT, ENOTFOUND
+          errno: cause?.errno,
+          syscall: cause?.syscall,
+          address: cause?.address,
+          port: cause?.port,
+        }
+      : undefined,
+  };
+}
+
+
+Then log:
+
+personaId
+
+requestId/jobId
+
+model
+
+endpoint (upload vs generateContent)
+
+retry attempt #
+
+serialized error (including cause)
+
+This will tell you if it’s:
+
+ECONNRESET (connection reset)
+
+ETIMEDOUT (timeout)
+
+ENOTFOUND (DNS)
+
+EAI_AGAIN (temporary DNS failure)
+
+UND_ERR_CONNECT_TIMEOUT (undici connect timeout)
+
+etc.
+
+Without this, you’re guessing.
+
+2) Add robust retry logic (only for transient network errors)
+
+Gemini calls can fail transiently. Treat them like any other external dependency.
+
+Retry if:
+
+err.cause.code in: ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND
+
+message contains “fetch failed” (but still gate on cause if possible)
+
+HTTP 429 / 503 / 500 from Gemini (if you can access response status)
+
+Do not retry if:
+
+4xx validation errors (except 429)
+
+auth errors (401/403)
+
+your own prompt/schema errors
+
+Policy:
+
+max 4 attempts
+
+exponential backoff with jitter: 250ms → 750ms → 2s → 5s cap
+
+Pseudo:
+
+async function withRetries<T>(fn: () => Promise<T>, label: string) {
+  const max = 4;
+  for (let attempt = 1; attempt <= max; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const info = serializeFetchError(err);
+      const code = info.cause?.code;
+
+      const transient =
+        code === "ECONNRESET" ||
+        code === "ETIMEDOUT" ||
+        code === "EAI_AGAIN" ||
+        code === "ENOTFOUND" ||
+        (info.message || "").includes("fetch failed");
+
+      if (!transient || attempt === max) throw err;
+
+      const base = Math.min(5000, 250 * Math.pow(2, attempt - 1));
+      const jitter = base * (0.2 * (Math.random() * 2 - 1)); // ±20%
+      const delay = Math.max(200, Math.round(base + jitter));
+
+      FocalPointLogger.warn("API_Retry", { label, attempt, delay, error: info });
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error("unreachable");
+}
+
+
+Wrap both:
+
+Gemini generateContent calls
+
+Gemini files.get / polling calls
+
+Gemini resumable upload chunk calls (if you do those via fetch)

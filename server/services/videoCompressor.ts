@@ -27,7 +27,7 @@ export interface CompressionProgress {
 const DEFAULT_OPTIONS: CompressionOptions = {
   targetWidth: 1280,
   targetHeight: 720,
-  targetFps: 10,
+  targetFps: 2,
   crf: 30,
   audioBitrate: '64k',
 };

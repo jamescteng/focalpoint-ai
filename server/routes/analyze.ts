@@ -37,15 +37,82 @@ interface AnalyzeRequest {
 const PRIMARY_MODEL = "gemini-3-pro-preview";
 const FALLBACK_MODEL = "gemini-2.5-flash";
 
-function isModelOverloadedError(error: any): boolean {
-  const message = error?.message || '';
-  const status = error?.status;
+function serializeFetchError(err: any) {
+  const cause = err?.cause;
+  return {
+    name: err?.name,
+    message: err?.message,
+    stack: err?.stack?.split('\n').slice(0, 5).join('\n'),
+    cause: cause
+      ? {
+          name: cause?.name,
+          message: cause?.message,
+          code: cause?.code,
+          errno: cause?.errno,
+          syscall: cause?.syscall,
+          address: cause?.address,
+          port: cause?.port,
+        }
+      : undefined,
+  };
+}
+
+function isTransientError(error: any): boolean {
+  const info = serializeFetchError(error);
+  const code = info.cause?.code;
+  const message = info.message || '';
+  const status = error?.status || error?.httpStatus || error?.statusCode;
+  
+  const isTransientStatus = status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  
   return (
-    status === 503 ||
+    isTransientStatus ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EAI_AGAIN' ||
+    code === 'ENOTFOUND' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT' ||
+    message.includes('fetch failed') ||
     message.includes('503') ||
     message.includes('overloaded') ||
     message.includes('UNAVAILABLE')
   );
+}
+
+function shouldTryFallbackModel(error: any): boolean {
+  return isTransientError(error);
+}
+
+async function withRetries<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxAttempts: number = 4
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const info = serializeFetchError(err);
+      
+      if (!isTransientError(err) || attempt === maxAttempts) {
+        FocalPointLogger.error("API_Final_Error", `${label} attempt ${attempt}: ${JSON.stringify(info)}`);
+        throw err;
+      }
+      
+      const base = Math.min(5000, 250 * Math.pow(2, attempt - 1));
+      const jitter = base * (0.2 * (Math.random() * 2 - 1));
+      const delay = Math.max(200, Math.round(base + jitter));
+      
+      FocalPointLogger.warn("API_Retry", `${label} attempt ${attempt}, retrying in ${delay}ms: ${info.cause?.code || info.message}`);
+      
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  
+  throw lastError;
 }
 
 async function callGeminiWithFallback(
@@ -144,14 +211,17 @@ async function callGeminiWithFallback(
   });
 
   try {
-    const response = await ai.models.generateContent({
-      model: PRIMARY_MODEL,
-      ...requestConfig
-    });
+    const response = await withRetries(
+      () => ai.models.generateContent({
+        model: PRIMARY_MODEL,
+        ...requestConfig
+      }),
+      `Gemini_${PRIMARY_MODEL}_${persona.id}`
+    );
     return { response, modelUsed: PRIMARY_MODEL };
   } catch (primaryError: any) {
-    if (isModelOverloadedError(primaryError)) {
-      FocalPointLogger.warn("Model_Fallback", `${PRIMARY_MODEL} overloaded (503), falling back to ${FALLBACK_MODEL}`);
+    if (shouldTryFallbackModel(primaryError)) {
+      FocalPointLogger.warn("Model_Fallback", `${PRIMARY_MODEL} failed after retries, falling back to ${FALLBACK_MODEL}`);
       
       FocalPointLogger.info("API_Call", { 
         model: FALLBACK_MODEL, 
@@ -161,10 +231,13 @@ async function callGeminiWithFallback(
         fallback: true
       });
 
-      const response = await ai.models.generateContent({
-        model: FALLBACK_MODEL,
-        ...requestConfig
-      });
+      const response = await withRetries(
+        () => ai.models.generateContent({
+          model: FALLBACK_MODEL,
+          ...requestConfig
+        }),
+        `Gemini_${FALLBACK_MODEL}_${persona.id}`
+      );
       return { response, modelUsed: FALLBACK_MODEL };
     }
     throw primaryError;

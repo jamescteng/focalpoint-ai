@@ -228,7 +228,7 @@ interface MilestoneData {
 
 const MILESTONE_DEFINITIONS: Record<MilestoneType, MilestoneData> = {
   ANALYZING: { stage: 'analyzing', pct: 5, message: 'Analyzing video...' },
-  COMPRESS_STARTED: { stage: 'compressing', pct: 5, message: 'Creating analysis proxy (720p, 10fps)...' },
+  COMPRESS_STARTED: { stage: 'compressing', pct: 5, message: 'Creating analysis proxy (720p, 2fps)...' },
   COMPRESS_DONE: { stage: 'compressed', pct: 55, message: 'Compression complete' },
   SKIPPED_COMPRESSION: { stage: 'skipped_compression', pct: 55, message: 'Video already optimized, proceeding...' },
   UPLOADING_PROXY: { stage: 'uploading_proxy', pct: 55, message: 'Uploading proxy to storage...' },

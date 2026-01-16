@@ -54,7 +54,6 @@ export const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ personas, curr
           />
         </div>
         <span className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-black">{translatedRole}</span>
-        <span className="text-[9px] sm:text-[10px] md:text-xs text-zinc-400 uppercase tracking-[0.1em] sm:tracking-[0.2em] md:tracking-[0.3em] mt-1 sm:mt-2 md:mt-3 font-black">{t('processing.statusInspecting')}</span>
       </div>
     </div>
   );

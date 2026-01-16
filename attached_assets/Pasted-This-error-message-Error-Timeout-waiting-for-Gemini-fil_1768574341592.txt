@@ -1,0 +1,32 @@
+This error message—Error: Timeout waiting for Gemini file to become active—is very specific. It is happening during the Google Server Pre-processing stage.
+After you finish uploading a file to the Gemini File API, it enters a PROCESSING state. During this time, Google is performing the 1 FPS downsampling and tokenization we discussed earlier. For a 90–120 minute feature film, this process is computationally heavy, and your current code's "Polling Timeout" (how long it waits for the file to be ready) is simply too short.
+Here is the technical feedback and the specific fixes for your team:
+1. The Root Cause: "Ingestion Latency"
+Short Clips (1–5 mins): Google usually finishes processing in under 30 seconds.
+Feature Films (90–120 mins): Google has to decode the entire movie and generate roughly 5,000 to 7,000 visual tokens. This typically takes 3 to 8 minutes on Google's backend.
+The Bug: If your code is only set to wait for 2 minutes before giving up, it will throw the Timeout error you see in the logs, even if Google is still working perfectly fine.
+2. Required Fix: Adjust the Polling Logic
+In your server/uploadRoutes.ts, there is a function (likely pollForActive) that checks the file status in a loop. You need to give it more "patience."
+Instruction for your Dev:
+"The pollForActive function is timing out on long-form content. We need to increase the maximum wait time. For 2-hour films, set the total timeout to at least 10–15 minutes. Also, increase the interval between checks to 15–20 seconds to avoid hitting Google's Rate Limits for metadata requests."
+3. Proposed Code Adjustment (Node.js)
+Your developer should update the polling loop to look something like this:
+code
+TypeScript
+async function pollForActive(fileManager, fileRef) {
+  let attempts = 0;
+  const maxAttempts = 60;   // Increase attempts
+  const delay = 15000;      // Wait 15 seconds between checks (Total 15 mins)
+
+  while (attempts < maxAttempts) {
+    const file = await fileManager.getFile(fileRef.name);
+    
+    if (file.state === 'ACTIVE') return file;
+    if (file.state === 'FAILED') throw new Error("Google backend processing failed");
+    
+    console.log(`[Wait] File state: ${file.state}. Attempt ${attempts + 1}/${maxAttempts}`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    attempts++;
+  }
+  throw new Error("Gemini File API: Processing timed out after 15 minutes.");
+}

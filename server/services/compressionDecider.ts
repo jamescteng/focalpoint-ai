@@ -28,26 +28,12 @@ export function shouldCompress(
   metadata: VideoMetadata,
   thresholds: CompressionThresholds = DEFAULT_THRESHOLDS
 ): CompressionDecision {
-  const reasons: string[] = [];
-  
-  const fileSizeMB = metadata.fileSizeBytes / (1024 * 1024);
-  const effectiveHeight = Math.min(metadata.width, metadata.height);
-  
-  if (fileSizeMB > thresholds.maxFileSizeMB) {
-    reasons.push(`File size ${fileSizeMB.toFixed(1)}MB exceeds ${thresholds.maxFileSizeMB}MB threshold`);
-  }
-  
-  if (effectiveHeight > thresholds.maxHeight) {
-    reasons.push(`Resolution ${metadata.width}x${metadata.height} exceeds ${thresholds.maxHeight}p threshold`);
-  }
-  
-  if (metadata.fps > thresholds.maxFps) {
-    reasons.push(`Frame rate ${metadata.fps}fps exceeds ${thresholds.maxFps}fps threshold`);
-  }
+  console.log(`[CompressionDecider] Compression disabled - uploading original file directly to Gemini`);
+  console.log(`  File: ${(metadata.fileSizeBytes / 1024 / 1024).toFixed(1)}MB, ${metadata.width}x${metadata.height}, ${metadata.fps.toFixed(1)}fps`);
   
   return {
-    shouldCompress: reasons.length > 0,
-    reasons,
+    shouldCompress: false,
+    reasons: ['Compression disabled - direct upload to Gemini'],
   };
 }
 

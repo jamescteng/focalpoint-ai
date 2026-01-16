@@ -10,7 +10,7 @@ const MAX_VIDEO_SIZE_MB = 2000;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
 const POLL_INTERVAL_MS = 1500;
-const MAX_POLL_TIME_MS = 15 * 60 * 1000;
+const MAX_POLL_TIME_MS = 40 * 60 * 1000;
 
 const MAX_UPLOAD_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -336,7 +336,7 @@ export const uploadVideo = async (
   }
 };
 
-const ANALYSIS_TIMEOUT_MS = 180000;
+const ANALYSIS_TIMEOUT_MS = 900000;
 const MAX_RETRIES = 1;
 
 const isNetworkError = (error: any): boolean => {

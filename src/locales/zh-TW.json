@@ -17,7 +17,7 @@
     "youtube": "YouTube",
     "fileSelected": "已選擇檔案",
     "chooseFile": "選擇檔案",
-    "videoUpTo2GB": "影片最大 2GB",
+    "videoHint": "最長 120 分鐘，建議 720p",
     "synopsis": "劇情簡介",
     "synopsisPlaceholder": "描述你的故事與背景，讓評論者帶著這些資訊觀賞影片...",
     "chooseReviewer": "選擇評論者",

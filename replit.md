@@ -21,7 +21,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 | `server/uploadRoutes.ts` | Upload flow + Gemini file transfer |
 | `server/dialogueRoutes.ts` | Podcast generation endpoints |
 | `server/middleware/rateLimiting.ts` | Rate limit configs |
-| `server/services/videoCompressor.ts` | FFmpeg 720p/10fps compression |
+| `server/services/videoCompressor.ts` | FFmpeg 720p/2fps compression |
 | `server/services/compressionDecider.ts` | Smart compression decision logic (TDD) |
 | `server/services/progressManager.ts` | Resilient DB updates with retry, throttling, milestones |
 | `server/personas.ts` | AI persona definitions |
@@ -47,14 +47,22 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Progress Tracking
 Progress bar ranges (monotonic, never goes backward):
 - **Upload**: 0-5% (file upload to server)
-- **Compression**: 5-55% (FFmpeg 720p/10fps proxy)
-- **Storage Upload**: 55-65% (proxy to Replit storage)
-- **Gemini Transfer**: 65-85% (video to Gemini API)
+- **Gemini Transfer**: 5-85% (direct upload to Gemini API via 32MB chunks)
 - **AI Processing**: 85-100% (analysis by persona)
-- **YouTube path**: Jumps to 85% (skips upload/compression)
+- **YouTube path**: Jumps to 85% (skips upload)
+
+Note: Compression is disabled - files upload directly to Gemini for faster processing.
 
 Server: `ProgressFlushManager` tracks `maxSeenPct` to reject backward updates.
 Frontend: All `setProcessProgress` calls use `Math.max(prev, X)` pattern.
+
+## API Resilience
+- **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
+- **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND)
+- **Model fallback**: Primary `gemini-3-pro-preview` → fallback `gemini-2.5-flash` on transient errors after retries exhausted
+- **Upload timeout**: 40 minutes for frontend polling
+- **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
+- **Analysis timeout**: 15 minutes for frontend API call to /api/analyze
 
 ## Security
 - Rate limiting: voice/podcast 1/min, polling 20/min
