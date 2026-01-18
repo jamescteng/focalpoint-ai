@@ -77,6 +77,28 @@ Database table: `analysis_jobs` (jobId, sessionId, personaId, status, result, la
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
 - **Analysis timeout**: 15 minutes for frontend polling of analysis jobs
 
+## Observability (Blank Screen Diagnostics)
+Layered beacon system to diagnose loading failures:
+
+**Beacon Events** (logged via `/api/beacon`):
+- `html_loaded` - Inline script ran (proves HTML reached browser)
+- `js_loaded` - Main JS bundle loaded
+- `react_mounted` - React successfully rendered
+- `runtime_error` - JavaScript error caught
+- `unhandled_rejection` - Promise rejection caught
+- `mount_timeout` - React didn't mount within 8 seconds
+
+**Diagnostic Flow**:
+- No server logs → User can't reach server (network/DNS)
+- Server logs but no `html_loaded` → HTML didn't load
+- `html_loaded` but no `js_loaded` → JS bundle blocked/failed
+- `js_loaded` but no `react_mounted` → React crashed
+- `react_mounted` but blank → CSS/routing issue
+
+**Endpoints**:
+- `GET /healthz` - Plain text health check (no React)
+- `POST /api/beacon` - Frontend event logging
+
 ## Security
 - Rate limiting: voice/podcast 1/min, polling 20/min
 - Error sanitization: generic client messages, detailed server logs

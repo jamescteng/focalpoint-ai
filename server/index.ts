@@ -30,6 +30,32 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
+app.post('/api/beacon', express.text({ type: '*/*' }), (req, res) => {
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { event, clientSessionId, ts, path: reqPath, ua, buildId, error } = body;
+    const clientIp = req.headers['x-forwarded-for'] as string || 
+                     req.headers['x-real-ip'] as string || 
+                     req.socket.remoteAddress || 
+                     'unknown';
+    
+    FocalPointLogger.info('Beacon', {
+      event,
+      clientSessionId,
+      ts,
+      path: reqPath,
+      ua: ua?.substring(0, 100),
+      buildId,
+      clientIp,
+      error: error ? { message: error.message, stack: error.stack?.substring(0, 500) } : undefined
+    });
+  } catch (e) {
+    FocalPointLogger.warn('Beacon', 'Failed to parse beacon payload');
+  }
+  
+  res.status(204).send();
+});
+
 app.get('/', (req, res, next) => {
   const acceptHeader = req.get('Accept') || '';
   if (acceptHeader.includes('text/html')) {

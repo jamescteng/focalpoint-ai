@@ -19,7 +19,13 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
 export function requestLoggingMiddleware(req: Request, res: Response, next: NextFunction) {
   const startTime = Date.now();
   
-  console.log(`[${req.requestId}] --> ${req.method} ${req.path}`);
+  const clientIp = req.headers['x-forwarded-for'] as string || 
+                   req.headers['x-real-ip'] as string || 
+                   req.socket.remoteAddress || 
+                   'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  
+  console.log(`[${req.requestId}] --> ${req.method} ${req.path} | IP: ${clientIp} | UA: ${userAgent.substring(0, 100)}`);
   
   res.on('finish', () => {
     const duration = Date.now() - startTime;

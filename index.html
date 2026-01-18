@@ -8,6 +8,81 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      window.__fpClientSessionId = 'cs_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+      window.__fpBeaconSent = {};
+      
+      function sendBeacon(event, extra) {
+        if (window.__fpBeaconSent[event]) return;
+        window.__fpBeaconSent[event] = true;
+        
+        var payload = {
+          event: event,
+          clientSessionId: window.__fpClientSessionId,
+          ts: Date.now(),
+          path: location.pathname,
+          ua: navigator.userAgent,
+          buildId: 'v1'
+        };
+        if (extra) {
+          for (var k in extra) payload[k] = extra[k];
+        }
+        
+        try {
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/beacon', JSON.stringify(payload));
+          } else {
+            fetch('/api/beacon', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              keepalive: true
+            });
+          }
+        } catch (e) {}
+      }
+      
+      window.__fpSendBeacon = sendBeacon;
+      sendBeacon('html_loaded');
+      
+      window.addEventListener('error', function(e) {
+        sendBeacon('runtime_error', {
+          error: {
+            message: e.message || 'Unknown error',
+            filename: e.filename,
+            lineno: e.lineno,
+            colno: e.colno,
+            stack: e.error && e.error.stack ? e.error.stack.substring(0, 1000) : null
+          }
+        });
+      });
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = e.reason;
+        sendBeacon('unhandled_rejection', {
+          error: {
+            message: reason && reason.message ? reason.message : String(reason),
+            stack: reason && reason.stack ? reason.stack.substring(0, 1000) : null
+          }
+        });
+      });
+      
+      window.__fpMountTimeout = setTimeout(function() {
+        if (!window.__fpBeaconSent['react_mounted']) {
+          document.getElementById('root').innerHTML = 
+            '<div style="font-family:system-ui,sans-serif;padding:40px;text-align:center;color:#333;">' +
+            '<h2 style="margin-bottom:20px;">Loading is taking longer than expected</h2>' +
+            '<p style="margin-bottom:20px;">The app is having trouble starting. This could be a temporary issue.</p>' +
+            '<button onclick="location.reload()" style="padding:12px 24px;font-size:16px;cursor:pointer;background:#4f46e5;color:white;border:none;border-radius:8px;">Reload Page</button>' +
+            '<p style="margin-top:20px;font-size:12px;color:#666;">Session: ' + window.__fpClientSessionId + '</p>' +
+            '<p style="font-size:12px;color:#666;"><a href="/healthz" style="color:#4f46e5;">Check server status</a></p>' +
+            '</div>';
+          sendBeacon('mount_timeout');
+        }
+      }, 8000);
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

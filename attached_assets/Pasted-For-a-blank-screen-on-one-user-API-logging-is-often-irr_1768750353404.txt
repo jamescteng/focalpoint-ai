@@ -1,0 +1,184 @@
+For a “blank screen” on one user, API logging is often irrelevant because you may never reach the point where your app calls /api/*. You need a layered observability plan that can answer, with high confidence:
+
+Did the user reach your origin at all?
+
+Did the browser successfully download HTML/CSS/JS?
+
+Did any JavaScript execute?
+
+If JS executed, did React mount or crash?
+
+Below is a concrete plan you can hand to your dev and ship quickly, without overbuilding.
+
+Goal: distinguish 4 failure classes
+A) Network / DNS / ISP / regional routing issue
+
+No requests hit your server (not even GET / or GET /assets/*)
+
+B) HTML served, but assets fail (JS/CSS blocked, wrong cache, 404, mixed content, CSP)
+
+Server logs show GET / but no successful GET /assets/*.js
+
+Or assets requested but return 404/403/5xx
+
+C) JS loaded, but crashes before React mounts
+
+Assets load, but you never see “app_started” / “app_mounted” beacons
+
+Or you see “app_started” then an “app_error” beacon
+
+D) React mounts but UI renders blank due to runtime state / route / hydration mismatch
+
+“app_mounted” beacon fires, but user still sees blank → then you inspect routing, CSS, feature flags, etc.
+
+Layer 1: Server-side request logging (cheap, definitive)
+
+Implement:
+
+A minimal middleware that logs every request with:
+
+timestamp, requestId
+
+method + path
+
+status code
+
+user-agent
+
+cf-ray / x-forwarded-for / x-real-ip (whatever your platform provides)
+
+response time ms
+
+Why: If the user can’t reach you, you’ll see nothing. If they reach HTML but not JS, you’ll see it immediately.
+
+Also add: a dedicated GET /healthz returning a tiny text response (no React). If the user can load /healthz but not the app, it’s a frontend/asset issue.
+
+Layer 2: “Front-end init beacon” that fires before React does anything
+
+This is the most important addition.
+
+Option (recommended): inline in index.html above your JS bundle tag
+
+Add a tiny script that:
+
+generates a clientSessionId
+
+sends a navigator.sendBeacon('/api/beacon', payload) (or fetch(..., { keepalive:true }) fallback)
+
+records basic environment: user agent, language, timezone offset, viewport, location.href
+
+records performance.getEntriesByType('navigation') basics if available
+
+Beacon events you want:
+
+html_loaded (inline script runs)
+
+js_loaded (your main bundle loaded)
+
+react_mounted (after createRoot().render() succeeds)
+
+runtime_error (window.onerror + unhandledrejection)
+
+If the user sees a blank screen:
+
+If you got html_loaded but not js_loaded → JS bundle blocked/failed
+
+If you got js_loaded but not react_mounted → crash before mount
+
+If you got react_mounted → app logic/CSS/route issue
+
+Layer 3: capture runtime crashes (so you’re not blind)
+
+In the same inline snippet (or earliest possible in your entry file), add:
+
+window.addEventListener('error', ...)
+
+window.addEventListener('unhandledrejection', ...)
+
+Send the error message + stack (if available) via beacon.
+Important: serialize errors explicitly; don’t send raw Error objects.
+
+Also add a React Error Boundary around your app to render a simple fallback UI and beacon the error.
+
+Layer 4: Asset integrity checks (common “one user only” cause)
+
+“One user only” often means bad cache or service worker.
+
+Concrete checks:
+
+Ensure your assets are hashed (Vite default) and HTML references the correct hashed file.
+
+Set cache headers so:
+
+index.html is not cached aggressively (Cache-Control: no-cache), so it can point to new hashed assets.
+
+hashed assets (assets/*.js) can be cached long (immutable), that’s fine.
+
+If you ever had a PWA/service worker:
+
+confirm it’s not serving stale HTML pointing to missing JS.
+
+add a “kill switch” to unregister old SWs (if relevant).
+
+Layer 5: Provide a user-facing “diagnostic fallback screen”
+
+If React fails to mount within, say, 5 seconds:
+
+show a plain HTML overlay: “We’re having trouble loading the app”
+
+include:
+
+a “Reload” button
+
+a link to /healthz
+
+a “Copy diagnostics” button that prints sessionId + last beacon status
+
+optionally a query param to enable verbose logs: ?debug=1
+
+This helps support without requiring the user to open dev tools.
+
+Endpoint spec: /api/beacon
+
+Accept POST JSON:
+
+event: html_loaded | js_loaded | react_mounted | runtime_error | unhandled_rejection
+
+clientSessionId
+
+ts
+
+path
+
+ua
+
+buildId (embed your git sha or version string)
+
+error (if any)
+Store to logs (or DB if you want), but logging is enough for now.
+
+What I would do first (minimal, high impact)
+
+Server middleware request logging
+
+/healthz
+
+index.html inline html_loaded beacon + error/unhandledrejection beacons
+
+React mounted beacon
+
+That’s enough to isolate the class of problem in one report from the user.
+
+Likely causes given “works for you, fails for one user”
+
+Not iPhone model-specific; more commonly:
+
+cached old HTML pointing to a JS asset that no longer exists (404)
+
+content blocker / privacy DNS blocking a domain (analytics/CDN/fonts) that your app depends on (shouldn’t, but happens)
+
+region/ISP routing issue to Replit domain or your asset host
+
+JS runtime error triggered by locale, language, or unusual stored state in localStorage
+
+The beacon approach will tell you which in minutes.
