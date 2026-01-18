@@ -38,8 +38,9 @@ interface AnalyzeRequest {
   personaIds: string[];
 }
 
-const PRIMARY_MODEL = "gemini-3-pro-preview";
+const PRIMARY_MODEL = "gemini-3-flash-preview";
 const FALLBACK_MODEL = "gemini-2.5-flash";
+const API_TIMEOUT_MS = 120000;
 
 function serializeFetchError(err: any) {
   const cause = err?.cause;
@@ -79,12 +80,31 @@ function isTransientError(error: any): boolean {
     message.includes('fetch failed') ||
     message.includes('503') ||
     message.includes('overloaded') ||
-    message.includes('UNAVAILABLE')
+    message.includes('UNAVAILABLE') ||
+    message.includes('Timeout after')
   );
 }
 
 function shouldTryFallbackModel(error: any): boolean {
   return isTransientError(error);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timeout after ${timeoutMs}ms: ${label}`));
+    }, timeoutMs);
+    
+    promise
+      .then(result => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
 }
 
 async function withRetries<T>(
@@ -216,10 +236,14 @@ async function callGeminiWithFallback(
 
   try {
     const response = await withRetries(
-      () => ai.models.generateContent({
-        model: PRIMARY_MODEL,
-        ...requestConfig
-      }),
+      () => withTimeout(
+        ai.models.generateContent({
+          model: PRIMARY_MODEL,
+          ...requestConfig
+        }),
+        API_TIMEOUT_MS,
+        `${PRIMARY_MODEL}_${persona.id}`
+      ),
       `Gemini_${PRIMARY_MODEL}_${persona.id}`
     );
     return { response, modelUsed: PRIMARY_MODEL };
@@ -235,14 +259,23 @@ async function callGeminiWithFallback(
         fallback: true
       });
 
-      const response = await withRetries(
-        () => ai.models.generateContent({
-          model: FALLBACK_MODEL,
-          ...requestConfig
-        }),
-        `Gemini_${FALLBACK_MODEL}_${persona.id}`
-      );
-      return { response, modelUsed: FALLBACK_MODEL };
+      try {
+        const response = await withRetries(
+          () => withTimeout(
+            ai.models.generateContent({
+              model: FALLBACK_MODEL,
+              ...requestConfig
+            }),
+            API_TIMEOUT_MS,
+            `${FALLBACK_MODEL}_${persona.id}`
+          ),
+          `Gemini_${FALLBACK_MODEL}_${persona.id}`
+        );
+        return { response, modelUsed: FALLBACK_MODEL };
+      } catch (fallbackError: any) {
+        FocalPointLogger.error("Fallback_Also_Failed", `Both ${PRIMARY_MODEL} and ${FALLBACK_MODEL} failed for ${persona.id}: ${fallbackError.message}`);
+        throw fallbackError;
+      }
     }
     throw primaryError;
   }

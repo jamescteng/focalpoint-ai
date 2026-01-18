@@ -6,7 +6,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
 - **Backend**: Express (port 3001), proxied via Vite `/api`
-- **AI**: Google Gemini (`gemini-3-pro-preview`)
+- **AI**: Google Gemini (`gemini-3-flash-preview`)
 - **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage
@@ -70,8 +70,9 @@ Database table: `analysis_jobs` (jobId, sessionId, personaId, status, result, la
 
 ## API Resilience
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
-- **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND)
-- **Model fallback**: Primary `gemini-3-pro-preview` → fallback `gemini-2.5-flash` on transient errors after retries exhausted
+- **API timeout**: 120 seconds per request via `withTimeout()` wrapper - prevents hanging connections
+- **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts
+- **Model fallback**: Primary `gemini-3-flash-preview` → fallback `gemini-2.5-flash` on transient errors after retries exhausted
 - **Upload timeout**: 40 minutes for frontend polling
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
 - **Analysis timeout**: 15 minutes for frontend polling of analysis jobs
