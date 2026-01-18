@@ -336,42 +336,78 @@ export const uploadVideo = async (
   }
 };
 
-const ANALYSIS_TIMEOUT_MS = 900000;
-const MAX_RETRIES = 1;
+const ANALYSIS_POLL_INTERVAL_MS = 2000;
+const ANALYSIS_TIMEOUT_MS = 15 * 60 * 1000;
 
-const isNetworkError = (error: any): boolean => {
-  const message = error?.message?.toLowerCase() || '';
-  return message.includes('load failed') || 
-         message.includes('failed to fetch') || 
-         message.includes('network') ||
-         message.includes('aborted') ||
-         error?.name === 'AbortError' ||
-         error?.name === 'TypeError';
-};
+interface AnalysisJobSubmitResponse {
+  jobIds: string[];
+  status: 'pending';
+}
 
-const fetchWithTimeout = async (
-  url: string,
-  options: RequestInit,
-  timeoutMs: number
-): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+interface AnalysisJobStatusResponse {
+  jobId: string;
+  sessionId: number;
+  personaId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: PersonaResult & { sessionId: number };
+  error?: string;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+async function pollAnalysisJobStatus(
+  jobId: string,
+  timeoutMs: number = ANALYSIS_TIMEOUT_MS
+): Promise<AnalysisJobStatusResponse> {
+  const startTime = Date.now();
   
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
+  while (true) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > timeoutMs) {
+      throw new Error('Analysis timed out. Please try again.');
+    }
+    
+    try {
+      const response = await fetch(`/api/analyze/status/${jobId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Analysis job not found. Please start a new analysis.');
+        }
+        const errorData = await safeJsonParse<{ error?: string }>(response);
+        throw new Error(errorData.error || `Status check failed: ${response.status}`);
+      }
+      
+      const status = await safeJsonParse<AnalysisJobStatusResponse>(response);
+      
+      FocalPointLogger.info("Analysis_Poll", { jobId, status: status.status });
+      
+      if (status.status === 'completed') {
+        return status;
+      }
+      
+      if (status.status === 'failed') {
+        throw new Error(status.error || 'Analysis failed');
+      }
+      
+    } catch (error: any) {
+      if (error.message.includes('Analysis timed out') || 
+          error.message.includes('job not found') ||
+          error.message.includes('Analysis failed')) {
+        throw error;
+      }
+      FocalPointLogger.warn("Analysis_Poll_Error", `Poll error (will retry): ${error.message}`);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, ANALYSIS_POLL_INTERVAL_MS));
   }
-};
+}
 
 export const analyzeWithPersona = async (
   project: Project,
   uploadResult: UploadResult | null,
-  personaId: string
+  personaId: string,
+  sessionId?: number
 ): Promise<AgentReport> => {
   if (!project.title || project.title.trim().length === 0) {
     throw new Error("DATA_ERR_01: Invalid Project Metadata.");
@@ -383,82 +419,64 @@ export const analyzeWithPersona = async (
     throw new Error("DATA_ERR_02: Video must be uploaded first.");
   }
 
+  if (!sessionId) {
+    throw new Error("DATA_ERR_03: Session ID is required.");
+  }
+
   FocalPointLogger.info("API_Call", { 
     persona: personaId, 
+    sessionId,
     fileUri: uploadResult?.fileUri,
     youtubeUrl: isYoutubeSession ? '[YouTube]' : undefined
   });
 
-  const requestBody = JSON.stringify({
-    title: project.title,
-    synopsis: project.synopsis,
-    srtContent: project.srtContent || '',
-    questions: project.questions,
-    language: project.language,
-    fileUri: uploadResult?.fileUri,
-    fileMimeType: uploadResult?.fileMimeType,
-    youtubeUrl: project.youtubeUrl,
-    personaIds: [personaId]
+  const submitResponse = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: project.title,
+      synopsis: project.synopsis,
+      srtContent: project.srtContent || '',
+      questions: project.questions,
+      language: project.language,
+      fileUri: uploadResult?.fileUri,
+      fileMimeType: uploadResult?.fileMimeType,
+      youtubeUrl: project.youtubeUrl,
+      personaIds: [personaId],
+      sessionId
+    })
   });
 
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      if (attempt > 0) {
-        FocalPointLogger.info("API_Retry", { attempt, persona: personaId });
-      }
-
-      const response = await fetchWithTimeout('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody
-      }, ANALYSIS_TIMEOUT_MS);
-
-      if (!response.ok) {
-        const errorData = await safeJsonParse<{ error?: string }>(response);
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
-
-      const data = await safeJsonParse<AnalyzeResponse>(response);
-      FocalPointLogger.info("API_Success", `Received ${data.results.length} persona report(s)`);
-      
-      const result = data.results[0];
-      if (!result || result.status !== 'success' || !result.report) {
-        throw new Error(result?.error || 'Analysis failed');
-      }
-
-      return {
-        personaId: result.personaId,
-        executive_summary: result.report.executive_summary,
-        highlights: result.report.highlights,
-        concerns: result.report.concerns,
-        answers: result.report.answers,
-        validationWarnings: result.validationWarnings
-      };
-    } catch (error: any) {
-      lastError = error;
-      FocalPointLogger.error("API_Call", { attempt, error: error.message });
-      
-      if (error.name === 'AbortError') {
-        throw new Error('Screening failed: Request timed out. Please try again.');
-      }
-      
-      if (!isNetworkError(error) || attempt >= MAX_RETRIES) {
-        break;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+  if (!submitResponse.ok) {
+    const errorData = await safeJsonParse<{ error?: string }>(submitResponse);
+    throw new Error(errorData.error || `Failed to start analysis: ${submitResponse.status}`);
   }
+
+  const submitData = await safeJsonParse<AnalysisJobSubmitResponse>(submitResponse);
   
-  const errorMessage = lastError?.message || 'Unknown error';
-  if (isNetworkError(lastError)) {
-    throw new Error('Screening failed: Network connection lost. Please check your connection and try again.');
+  if (!submitData.jobIds || submitData.jobIds.length === 0) {
+    throw new Error('No analysis jobs created');
   }
-  throw new Error(`Screening failed: ${errorMessage}`);
+
+  const jobId = submitData.jobIds[0];
+  FocalPointLogger.info("Analysis_Job_Started", { jobId, personaId });
+
+  const jobResult = await pollAnalysisJobStatus(jobId);
+
+  if (!jobResult.result || jobResult.result.status !== 'success' || !jobResult.result.report) {
+    throw new Error(jobResult.error || 'Analysis completed without results');
+  }
+
+  FocalPointLogger.info("API_Success", { jobId, personaId });
+
+  return {
+    personaId: jobResult.result.personaId,
+    executive_summary: jobResult.result.report.executive_summary,
+    highlights: jobResult.result.report.highlights,
+    concerns: jobResult.result.report.concerns,
+    answers: jobResult.result.report.answers,
+    validationWarnings: jobResult.result.validationWarnings
+  };
 };
 
 export interface PersonaAlias {

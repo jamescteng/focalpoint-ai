@@ -235,7 +235,7 @@ const App: React.FC = () => {
     setProcessProgress(prev => Math.max(prev, 90));
     
     try {
-      const report = await analyzeWithPersona(p, currentUploadResult, personaId);
+      const report = await analyzeWithPersona(p, currentUploadResult, personaId, sessionId);
       setReports([report]);
       setProcessProgress(prev => Math.max(prev, 100));
       setAnalyzingPersonaId(null);
@@ -272,7 +272,7 @@ const App: React.FC = () => {
     setStatusMessage(t('processing.analyzingWith', { persona: persona?.name || personaId }));
 
     try {
-      const report = await analyzeWithPersona(project, uploadResult, personaId);
+      const report = await analyzeWithPersona(project, uploadResult, personaId, currentSessionId ?? undefined);
       setReports(prev => [...prev, report]);
       setAnalyzingPersonaId(null);
       setStatusMessage('');

@@ -56,13 +56,25 @@ Note: Compression is disabled - files upload directly to Gemini for faster proce
 Server: `ProgressFlushManager` tracks `maxSeenPct` to reject backward updates.
 Frontend: All `setProcessProgress` calls use `Math.max(prev, X)` pattern.
 
+## Fire-and-Forget Analysis Pattern
+Analysis uses an async job pattern for mobile resilience (screen locks, app switches):
+
+1. **POST /api/analyze** - Returns `{ jobIds: string[], status: 'pending' }` immediately
+2. **Background processing** - Server runs AI analysis asynchronously, updates `analysis_jobs` table
+3. **GET /api/analyze/status/:jobId** - Frontend polls for completion (2s intervals, 15min timeout)
+4. **GET /api/analyze/status/session/:sessionId** - Get all jobs for a session
+
+Job statuses: `pending` → `processing` → `completed` | `failed`
+
+Database table: `analysis_jobs` (jobId, sessionId, personaId, status, result, lastError, createdAt, completedAt)
+
 ## API Resilience
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND)
 - **Model fallback**: Primary `gemini-3-pro-preview` → fallback `gemini-2.5-flash` on transient errors after retries exhausted
 - **Upload timeout**: 40 minutes for frontend polling
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
-- **Analysis timeout**: 15 minutes for frontend API call to /api/analyze
+- **Analysis timeout**: 15 minutes for frontend polling of analysis jobs
 
 ## Security
 - Rate limiting: voice/podcast 1/min, polling 20/min
