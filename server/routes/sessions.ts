@@ -59,11 +59,24 @@ router.post('/', statusLimiter, async (req, res) => {
 });
 
 router.get('/', statusLimiter, async (req, res) => {
+  const startTime = Date.now();
+  const requestId = req.requestId || 'unknown';
   try {
     const sessions = await storage.getSessions();
+    const duration = Date.now() - startTime;
+    FocalPointLogger.info("Sessions_List_OK", { 
+      requestId,
+      count: sessions.length, 
+      durationMs: duration 
+    });
     res.json(sessions);
   } catch (error: any) {
-    FocalPointLogger.error("Sessions_List", error.message);
+    const duration = Date.now() - startTime;
+    FocalPointLogger.error("Sessions_List_ERR", { 
+      requestId,
+      error: error.message, 
+      durationMs: duration 
+    });
     res.status(500).json({ error: 'Failed to load sessions.' });
   }
 });

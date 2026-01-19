@@ -541,15 +541,45 @@ export const createSession = async (data: {
 };
 
 export const getSessions = async (): Promise<DbSession[]> => {
-  const response = await fetch('/api/sessions');
-  
-  if (!response.ok) {
-    const error = await safeJsonParse<{ error?: string }>(response);
-    throw new Error(error.error || 'Failed to load sessions');
+  const startTime = Date.now();
+  try {
+    const response = await fetch('/api/sessions');
+    const duration = Date.now() - startTime;
+    
+    if (!response.ok) {
+      const error = await safeJsonParse<{ error?: string }>(response);
+      sendBeacon('sessions_fetch_err', { 
+        httpStatus: response.status,
+        message: error.error || 'Failed to load sessions',
+        durationMs: duration
+      });
+      throw new Error(error.error || 'Failed to load sessions');
+    }
+    
+    const sessions = await safeJsonParse<DbSession[]>(response);
+    sendBeacon('sessions_fetch_ok', { 
+      count: sessions.length,
+      durationMs: duration
+    });
+    return sessions;
+  } catch (err: any) {
+    const duration = Date.now() - startTime;
+    if (!err.message?.includes('Failed to load sessions')) {
+      sendBeacon('sessions_fetch_err', { 
+        message: err.message || 'Unknown error',
+        stack: err.stack?.substring(0, 500),
+        durationMs: duration
+      });
+    }
+    throw err;
   }
-  
-  return safeJsonParse<DbSession[]>(response);
 };
+
+function sendBeacon(event: string, extra?: Record<string, unknown>): void {
+  if (typeof window !== 'undefined' && (window as any).__fpSendBeacon) {
+    (window as any).__fpSendBeacon(event, extra);
+  }
+}
 
 export const getSession = async (id: number): Promise<DbSession> => {
   const response = await fetch(`/api/sessions/${id}`);
