@@ -1,0 +1,212 @@
+2026-01-19 10:08:50.96
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:08:50.96
+9b227989
+User
+error: undefined
+2026-01-19 10:08:50.96
+9b227989
+User
+event: 'react_mounted',
+2026-01-19 10:08:50.96
+9b227989
+User
+path: '/',
+2026-01-19 10:08:50.96
+9b227989
+User
+}
+2026-01-19 10:08:50.96
+9b227989
+User
+clientSessionId: 'cs_1768788517196_ntj0j56t',
+2026-01-19 10:08:50.96
+9b227989
+User
+ts: 1768788517229,
+2026-01-19 10:08:50.96
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:08:50.96
+9b227989
+User
+clientIp: '104.28.99.92, 34.117.33.233, 35.191.121.130,136.111.203.8',
+2026-01-19 10:08:53.48
+9b227989
+User
+[46df0702-f06b-4d69-a810-49017a89d946] <-- GET / 304 (727ms)
+2026-01-19 10:08:54.75
+9b227989
+User
+[238d50ae-6b3a-4303-878d-1cc10c6baccd] --> GET /apple-touch-icon-precomposed.png | IP: 104.28.99.92, 34.117.33.233, 35.191.76.52,35.192.213.80 | UA: NetworkingExtension/8623.1.14.10.9 Network/5569.60.39.0.3 iOS/26.2
+2026-01-19 10:08:54.75
+9b227989
+User
+[24ee76d4-1f49-46b7-b509-6cd2bc398029] --> GET /apple-touch-icon.png | IP: 104.28.99.92, 34.117.33.233, 35.191.76.51,35.224.23.137 | UA: NetworkingExtension/8623.1.14.10.9 Network/5569.60.39.0.3 iOS/26.2
+2026-01-19 10:08:54.76
+9b227989
+User
+[67bc28f1-a82c-4fd5-aa9e-eafdebb291ef] --> GET /favicon.ico | IP: 104.28.99.92, 34.117.33.233, 35.191.76.49,34.29.37.167 | UA: NetworkingExtension/8623.1.14.10.9 Network/5569.60.39.0.3 iOS/26.2
+2026-01-19 10:08:54.76
+9b227989
+User
+[238d50ae-6b3a-4303-878d-1cc10c6baccd] <-- GET /apple-touch-icon-precomposed.png 200 (17ms)
+2026-01-19 10:08:54.77
+9b227989
+User
+[24ee76d4-1f49-46b7-b509-6cd2bc398029] <-- GET /apple-touch-icon.png 200 (14ms)
+2026-01-19 10:08:54.77
+9b227989
+User
+[67bc28f1-a82c-4fd5-aa9e-eafdebb291ef] <-- GET /favicon.ico 200 (11ms)
+2026-01-19 10:12:50.62
+9b227989
+User
+clientIp: '111.71.54.239, 34.117.33.233, 35.191.112.152,34.55.97.151',
+2026-01-19 10:12:50.62
+9b227989
+User
+path: '/',
+2026-01-19 10:12:50.62
+9b227989
+User
+ts: 1768788770319,
+2026-01-19 10:12:50.62
+9b227989
+User
+clientSessionId: 'cs_1768788770319_8tpit1fz',
+2026-01-19 10:12:50.62
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:12:50.62
+9b227989
+User
+error: undefined
+2026-01-19 10:12:50.62
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Cr',
+2026-01-19 10:12:50.62
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:12:50.62
+9b227989
+User
+}
+2026-01-19 10:12:50.62
+9b227989
+User
+event: 'html_loaded',
+2026-01-19 10:12:50.62
+9b227989
+User
+[b6d9e574-fb39-43f8-90e3-df63eb90b29b] --> GET /favicon.ico | IP: 111.71.54.239, 34.117.33.233, 35.191.84.237,34.55.97.151 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 26_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Cr
+2026-01-19 10:12:50.62
+9b227989
+User
+ts: 1768788770355,
+2026-01-19 10:12:50.62
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:12:50.62
+9b227989
+User
+clientSessionId: 'cs_1768788770319_8tpit1fz',
+2026-01-19 10:12:50.62
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:12:50.62
+9b227989
+User
+clientIp: '111.71.54.239, 34.117.33.233, 35.191.112.154,136.111.203.8',
+2026-01-19 10:12:50.62
+9b227989
+User
+error: undefined
+2026-01-19 10:12:50.62
+9b227989
+User
+}
+2026-01-19 10:12:50.62
+9b227989
+User
+path: '/',
+2026-01-19 10:12:50.62
+9b227989
+User
+event: 'react_mounted',
+2026-01-19 10:12:50.62
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Cr',
+2026-01-19 10:12:50.62
+9b227989
+User
+event: 'js_loaded',
+2026-01-19 10:12:50.62
+9b227989
+User
+ts: 1768788770354,
+2026-01-19 10:12:50.62
+9b227989
+User
+clientIp: '111.71.54.239, 34.117.33.233, 35.191.112.153,35.188.154.9',
+2026-01-19 10:12:50.62
+9b227989
+User
+}
+2026-01-19 10:12:50.62
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:12:50.62
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:12:50.62
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Cr',
+2026-01-19 10:12:50.62
+9b227989
+User
+error: undefined
+2026-01-19 10:12:50.62
+9b227989
+User
+path: '/',
+2026-01-19 10:12:50.62
+9b227989
+User
+clientSessionId: 'cs_1768788770319_8tpit1fz',
+2026-01-19 10:12:50.62
+9b227989
+User
+[b6d9e574-fb39-43f8-90e3-df63eb90b29b] <-- GET /favicon.ico 304 (6ms)
+2026-01-19 10:13:06.00
+9b227989
+User
+[176cdaba-27c2-460d-9255-366057e54b65] --> GET /api/sessions | IP: 111.71.54.239, 34.117.33.233, 35.191.112.154,35.192.213.80 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 26_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Cr
+2026-01-19 10:13:06.64
+9b227989
+User
+[176cdaba-27c2-460d-9255-366057e54b65] <-- GET / 304 (644ms)
+2026-01-19 10:23:51.13
+9b227989
+System
+system: received signal terminated
+2026-01-19 10:23:56.50
+9b227989
+System
+system: received signal terminated
+2026-01-19 10:28:16.24
+9b227989
+System
+system: received signal terminated

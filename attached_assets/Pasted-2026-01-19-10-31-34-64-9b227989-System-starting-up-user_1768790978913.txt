@@ -1,0 +1,226 @@
+2026-01-19 10:31:34.64
+9b227989
+System
+starting up user application
+2026-01-19 10:31:34.64
+9b227989
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-19 10:31:34.64
+9b227989
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-19 10:31:35.70
+9b227989
+User
+> cross-env NODE_ENV=production tsx server/index.ts
+2026-01-19 10:31:35.70
+9b227989
+User
+> focalpoint-ai@0.0.0 start
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] All imports successful
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] Server module loading...
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] Configured PORT: 5000 (isProduction: true, env.PORT: 5000)
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] Configuring middleware...
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] Starting server...
+2026-01-19 10:31:38.62
+9b227989
+User
+[FocalPoint] Server setup complete, waiting for listen callback...
+2026-01-19 10:31:38.63
+9b227989
+User
+[FocalPoint] Backend server running on http://0.0.0.0:5000
+2026-01-19 10:34:21.69
+9b227989
+User
+[0feab65c-f320-4b1f-a6c8-ea5148202a1f] --> GET / | IP: 49.216.18.150, 34.117.33.233, 35.191.76.20,35.188.154.9 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers
+2026-01-19 10:34:21.70
+9b227989
+User
+[0feab65c-f320-4b1f-a6c8-ea5148202a1f] <-- GET / 200 (12ms)
+2026-01-19 10:34:22.02
+9b227989
+User
+ts: 1768790061821,
+2026-01-19 10:34:22.02
+9b227989
+User
+path: '/',
+2026-01-19 10:34:22.02
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:34:22.02
+9b227989
+User
+event: 'html_loaded',
+2026-01-19 10:34:22.02
+9b227989
+User
+clientIp: '49.216.18.150, 34.117.33.233, 35.191.76.22,35.224.23.137',
+2026-01-19 10:34:22.02
+9b227989
+User
+error: undefined
+2026-01-19 10:34:22.02
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers',
+2026-01-19 10:34:22.02
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:34:22.02
+9b227989
+User
+}
+2026-01-19 10:34:22.02
+9b227989
+User
+clientSessionId: 'cs_1768790061821_13d5kznw',
+2026-01-19 10:34:22.03
+9b227989
+User
+[27574a4d-3c30-4d45-8fd7-d5776c2c2598] --> GET /assets/index-CfbrqvDI.css | IP: 49.216.18.150, 34.117.33.233, 35.191.76.19,34.55.97.151 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers
+2026-01-19 10:34:22.03
+9b227989
+User
+[45a5eb95-c71b-4d5d-963e-b0d16ffe91fb] --> GET /assets/index-QvTHKJ6N.js | IP: 49.216.18.150, 34.117.33.233, 35.191.76.18,34.29.37.167 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers
+2026-01-19 10:34:22.03
+9b227989
+User
+[27574a4d-3c30-4d45-8fd7-d5776c2c2598] <-- GET /assets/index-CfbrqvDI.css 304 (3ms)
+2026-01-19 10:34:22.03
+9b227989
+User
+[45a5eb95-c71b-4d5d-963e-b0d16ffe91fb] <-- GET /assets/index-QvTHKJ6N.js 304 (2ms)
+2026-01-19 10:34:22.29
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:34:22.29
+9b227989
+User
+event: 'js_loaded',
+2026-01-19 10:34:22.29
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:34:22.29
+9b227989
+User
+ts: 1768790062151,
+2026-01-19 10:34:22.29
+9b227989
+User
+clientSessionId: 'cs_1768790061821_13d5kznw',
+2026-01-19 10:34:22.29
+9b227989
+User
+path: '/',
+2026-01-19 10:34:22.29
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers',
+2026-01-19 10:34:22.29
+9b227989
+User
+clientIp: '49.216.18.150, 34.117.33.233, 35.191.76.16,34.55.97.151',
+2026-01-19 10:34:22.29
+9b227989
+User
+error: undefined
+2026-01-19 10:34:22.29
+9b227989
+User
+}
+2026-01-19 10:34:22.29
+9b227989
+User
+ts: 1768790062152,
+2026-01-19 10:34:22.29
+9b227989
+User
+event: 'react_mounted',
+2026-01-19 10:34:22.29
+9b227989
+User
+ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers',
+2026-01-19 10:34:22.29
+9b227989
+User
+error: undefined
+2026-01-19 10:34:22.29
+9b227989
+User
+[FocalPoint][INFO][Beacon] {
+2026-01-19 10:34:22.29
+9b227989
+User
+clientIp: '49.216.18.150, 34.117.33.233, 35.191.76.22,35.188.154.9',
+2026-01-19 10:34:22.29
+9b227989
+User
+}
+2026-01-19 10:34:22.29
+9b227989
+User
+clientSessionId: 'cs_1768790061821_13d5kznw',
+2026-01-19 10:34:22.29
+9b227989
+User
+path: '/',
+2026-01-19 10:34:22.29
+9b227989
+User
+buildId: 'v1',
+2026-01-19 10:34:22.33
+9b227989
+User
+[8982d1e4-87e3-42b8-9156-8b3f08b3744f] --> GET /api/sessions | IP: 49.216.18.150, 34.117.33.233, 35.191.76.18,136.119.30.108 | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Vers
+2026-01-19 10:34:22.35
+9b227989
+User
+[f6ff93bb-2814-4c69-ac20-03c2895cc025] --> GET /apple-touch-icon-precomposed.png | IP: 49.216.18.150, 34.117.33.233, 35.191.4.12,35.224.23.137 | UA: NetworkingExtension/8623.2.4 Network/5569.80.42.502.1 iOS/26.3
+2026-01-19 10:34:22.35
+9b227989
+User
+[ea6cc879-795c-41b7-9ac6-2faf133773d0] --> GET /favicon.ico | IP: 49.216.18.150, 34.117.33.233, 35.191.4.13,35.188.154.9 | UA: NetworkingExtension/8623.2.4 Network/5569.80.42.502.1 iOS/26.3
+2026-01-19 10:34:22.35
+9b227989
+User
+[f6ff93bb-2814-4c69-ac20-03c2895cc025] <-- GET /apple-touch-icon-precomposed.png 200 (7ms)
+2026-01-19 10:34:22.36
+9b227989
+User
+[058ba905-dd44-428d-b0a8-899a138dfc86] --> GET /apple-touch-icon.png | IP: 49.216.18.150, 34.117.33.233, 35.191.4.14,35.192.213.80 | UA: NetworkingExtension/8623.2.4 Network/5569.80.42.502.1 iOS/26.3
+2026-01-19 10:34:22.36
+9b227989
+User
+[ea6cc879-795c-41b7-9ac6-2faf133773d0] <-- GET /favicon.ico 200 (7ms)
+2026-01-19 10:34:22.36
+9b227989
+User
+[058ba905-dd44-428d-b0a8-899a138dfc86] <-- GET /apple-touch-icon.png 200 (2ms)
+2026-01-19 10:34:23.00
+9b227989
+User
+[8982d1e4-87e3-42b8-9156-8b3f08b3744f] <-- GET / 200 (669ms)
+Wrap
+Colors

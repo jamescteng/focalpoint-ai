@@ -1,0 +1,124 @@
+2026-01-19 08:41:29.47
+9b227989
+System
+starting up user application
+2026-01-19 08:41:29.48
+9b227989
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-19 08:41:29.48
+9b227989
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-19 08:41:30.33
+9b227989
+User
+> cross-env NODE_ENV=production tsx server/index.ts
+2026-01-19 08:41:30.33
+9b227989
+User
+> focalpoint-ai@0.0.0 start
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] All imports successful
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] Server module loading...
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] Configured PORT: 5000 (isProduction: true, env.PORT: 5000)
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] Configuring middleware...
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] Starting server...
+2026-01-19 08:41:33.29
+9b227989
+User
+[FocalPoint] Server setup complete, waiting for listen callback...
+2026-01-19 08:41:33.30
+9b227989
+User
+[FocalPoint] Backend server running on http://0.0.0.0:5000
+2026-01-19 08:58:56.23
+9b227989
+System
+system: received signal terminated
+2026-01-19 09:29:51.62
+9b227989
+System
+starting up user application
+2026-01-19 09:29:51.62
+9b227989
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-19 09:29:51.62
+9b227989
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-19 09:29:52.70
+9b227989
+User
+> focalpoint-ai@0.0.0 start
+2026-01-19 09:29:52.70
+9b227989
+User
+> cross-env NODE_ENV=production tsx server/index.ts
+2026-01-19 09:29:55.47
+9b227989
+User
+[FocalPoint] Server module loading...
+2026-01-19 09:29:55.47
+9b227989
+User
+[FocalPoint] All imports successful
+2026-01-19 09:29:55.47
+9b227989
+User
+[FocalPoint] Configured PORT: 5000 (isProduction: true, env.PORT: 5000)
+2026-01-19 09:29:55.48
+9b227989
+User
+[FocalPoint] Configuring middleware...
+2026-01-19 09:29:55.48
+9b227989
+User
+[FocalPoint] Starting server...
+2026-01-19 09:29:55.48
+9b227989
+User
+[FocalPoint] Server setup complete, waiting for listen callback...
+2026-01-19 09:29:55.48
+9b227989
+User
+[FocalPoint] Backend server running on http://0.0.0.0:5000
+2026-01-19 09:44:56.24
+9b227989
+System
+system: received signal terminated
+2026-01-19 10:08:41.90
+9b227989
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-19 10:08:41.90
+9b227989
+System
+starting up user application
+2026-01-19 10:08:41.90
+9b227989
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-19 10:08:42.17
+9b227989
+System
+starting up user application
+2026-01-19 10:08:42.18
+9b227989
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false

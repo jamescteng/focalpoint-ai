@@ -1,0 +1,73 @@
+The abnormal part (and it matters)
+
+You have:
+
+[ab3411cd...] --> GET /api/sessions ...
+
+then
+
+[ab3411cd...] <-- GET / 200 (617ms)
+
+That response line should be something like:
+
+[ab3411cd...] <-- GET /api/sessions 200 (...)
+
+Instead, it logs / for the response path, while keeping the same requestId.
+
+What this implies
+
+Your logger is probably printing the wrong URL on the response (or mixing request state across requests). Common causes:
+
+Logging req.url/req.originalUrl in the finish handler but reading it from a mutated/shared object
+
+A closure/variable capture bug: you store path in a module-level variable or reuse an object between requests
+
+Proxy middleware rewrite confusion: if you’re logging one value at request start and another at response time (e.g., req.url vs req.originalUrl), a rewrite can make logs inconsistent—but it usually wouldn’t flip to / unless you’re using the wrong property.
+
+Why this blocks your diagnosis
+
+Right now you cannot trust the server logs to tell you whether /api/sessions is succeeding, failing, or hanging. For the “blank screen” user, /api/sessions might be timing out or returning 500—your logs would still misleadingly show GET / 200.
+
+What to fix (give this to your dev)
+1) Make response logs use a captured constant, not live req.*
+
+At the top of the middleware:
+
+Capture const method = req.method; const url = req.originalUrl; const requestId = ...;
+
+Then in res.on('finish'), log those captured values, not req.*.
+
+2) Log status + route for /api/sessions explicitly
+
+For that handler only, add a single structured line:
+
+sessions_list_ok {requestId, status, count, durationMs}
+
+and on error:
+
+sessions_list_err {requestId, status?, errName, errMessage, durationMs}
+
+3) Add a client-side “sessions_fetch_ok/err” beacon
+
+Because even perfect server logs won’t catch browser-side blocks (CORS, mixed content, Safari quirks). The client beacon should include:
+
+event: sessions_fetch_err
+
+httpStatus (if any)
+
+message
+
+stack (truncated)
+
+Answer to “is this running correctly?”
+
+The app load path is correct.
+Your request logging is not correct, and that is the key abnormality in this snippet.
+
+Once the logger is fixed, you’ll be able to tell if the “blank screen” user is:
+
+loading fine but rendering empty,
+
+failing on /api/sessions,
+
+or failing later on another call.
