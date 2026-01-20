@@ -1,0 +1,168 @@
+2026-01-20 13:18:58.52
+d3ece84c
+User
+[c03d6fff-b391-4ea0-bdea-f72b00a710c5] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:18:58.54
+d3ece84c
+User
+[c03d6fff-b391-4ea0-bdea-f72b00a710c5] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (25ms)
+2026-01-20 13:19:01.55
+d3ece84c
+User
+[9d85c2dd-f119-41d1-b593-573ecc643eab] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,34.57.112.90 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:01.57
+d3ece84c
+User
+[9d85c2dd-f119-41d1-b593-573ecc643eab] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (23ms)
+2026-01-20 13:19:04.51
+d3ece84c
+User
+[5401f121-4e36-415e-907b-f1eab1242df5] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:04.54
+d3ece84c
+User
+[5401f121-4e36-415e-907b-f1eab1242df5] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:07.51
+d3ece84c
+User
+[72da16f1-a0ce-45cc-b23e-55af3c5201cd] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,35.192.213.80 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:07.54
+d3ece84c
+User
+[72da16f1-a0ce-45cc-b23e-55af3c5201cd] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:10.52
+d3ece84c
+User
+[d2bfcbf7-51ca-4fe8-9ecb-1273c6a8ce48] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,35.224.23.137 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:10.54
+d3ece84c
+User
+[d2bfcbf7-51ca-4fe8-9ecb-1273c6a8ce48] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:13.61
+d3ece84c
+User
+[64a744c6-eaf4-4aaf-9360-c7f6d2a29081] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,34.9.32.149 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:13.64
+d3ece84c
+User
+[64a744c6-eaf4-4aaf-9360-c7f6d2a29081] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:16.52
+d3ece84c
+User
+[e231aece-9a70-48b3-86ed-1d639066b2f8] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,34.57.112.90 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:16.54
+d3ece84c
+User
+[e231aece-9a70-48b3-86ed-1d639066b2f8] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:19.51
+d3ece84c
+User
+[939f81db-01b4-4a4a-a60d-e175bbbaf619] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:19.53
+d3ece84c
+User
+[939f81db-01b4-4a4a-a60d-e175bbbaf619] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:22.51
+d3ece84c
+User
+[e24aaa09-3fc1-4e06-9558-51cfc50d87d3] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,35.224.23.137 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:22.54
+d3ece84c
+User
+[e24aaa09-3fc1-4e06-9558-51cfc50d87d3] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:25.52
+d3ece84c
+User
+[61e5bcb3-b17d-4f1c-9e2a-cb61f1264075] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,34.55.97.151 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:25.55
+d3ece84c
+User
+[61e5bcb3-b17d-4f1c-9e2a-cb61f1264075] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:28.52
+d3ece84c
+User
+[add201fb-7bd0-4e0d-aad2-4fc373a0a587] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,136.119.30.108 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:28.54
+d3ece84c
+User
+[add201fb-7bd0-4e0d-aad2-4fc373a0a587] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (23ms)
+2026-01-20 13:19:31.52
+d3ece84c
+User
+[ce3342c5-155c-4281-9490-8164844b322d] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,34.9.32.149 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:31.54
+d3ece84c
+User
+[ce3342c5-155c-4281-9490-8164844b322d] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:34.56
+d3ece84c
+User
+[503e44c5-9a68-4633-888f-2e24226a3c3d] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,34.57.112.90 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:34.58
+d3ece84c
+User
+[503e44c5-9a68-4633-888f-2e24226a3c3d] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (23ms)
+2026-01-20 13:19:37.52
+d3ece84c
+User
+[716b4006-92ae-4f0f-8474-69d42a1c3a98] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,34.29.37.167 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:37.54
+d3ece84c
+User
+[716b4006-92ae-4f0f-8474-69d42a1c3a98] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (23ms)
+2026-01-20 13:19:40.51
+d3ece84c
+User
+[9e2588a1-9537-4fd7-b576-fed80ed1e382] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,136.119.30.108 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:40.53
+d3ece84c
+User
+[9e2588a1-9537-4fd7-b576-fed80ed1e382] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:43.51
+d3ece84c
+User
+[f7a783e1-4602-4cd9-8d9a-0796ec958f66] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:43.54
+d3ece84c
+User
+[f7a783e1-4602-4cd9-8d9a-0796ec958f66] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 304 (22ms)
+2026-01-20 13:19:44.97
+d3ece84c
+User
+[FocalPoint][INFO][API_Success] { persona: 'cultural_editor', modelUsed: 'gemini-3-flash-preview' }
+2026-01-20 13:19:46.11
+d3ece84c
+User
+[a507ad35-56e1-4355-b786-193dbeee3f7f] --> GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,34.55.97.151 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:46.13
+d3ece84c
+User
+[a507ad35-56e1-4355-b786-193dbeee3f7f] <-- GET /api/analyze/status/aj_4bb4fbb7883dd3d043a3679eed643c8b 200 (23ms)
+2026-01-20 13:19:46.31
+d3ece84c
+User
+[06da5273-4617-4bc0-86e8-c5852770d88d] --> POST /api/sessions/34/reports | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:46.35
+d3ece84c
+User
+[FocalPoint][INFO][Report_Created] { reportId: 31, sessionId: 34, personaId: 'cultural_editor' }
+2026-01-20 13:19:46.35
+d3ece84c
+User
+[06da5273-4617-4bc0-86e8-c5852770d88d] <-- POST /api/sessions/34/reports 200 (34ms)
+2026-01-20 13:19:47.15
+d3ece84c
+User
+[e8cd1c6b-74b3-4a1d-bf60-1d23c09417ac] --> GET /api/dialogue/session/34 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,34.55.97.151 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:47.15
+d3ece84c
+User
+[137db196-b8bd-4948-b569-c27731350d97] --> GET /api/sessions/34/reports/cultural_editor/voice-script | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:19:47.17
+d3ece84c
+User
+[e8cd1c6b-74b3-4a1d-bf60-1d23c09417ac] <-- GET /api/dialogue/session/34 200 (25ms)
+2026-01-20 13:19:47.32
+d3ece84c
+User
+[137db196-b8bd-4948-b569-c27731350d97] <-- GET /api/sessions/34/reports/cultural_editor/voice-script 404 (173ms)

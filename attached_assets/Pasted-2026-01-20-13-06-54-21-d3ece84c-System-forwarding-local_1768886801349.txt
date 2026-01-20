@@ -1,0 +1,128 @@
+2026-01-20 13:06:54.21
+d3ece84c
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-20 13:06:54.21
+d3ece84c
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-20 13:06:54.91
+d3ece84c
+User
+> focalpoint-ai@0.0.0 start
+2026-01-20 13:06:54.91
+d3ece84c
+User
+> cross-env NODE_ENV=production tsx server/index.ts
+2026-01-20 13:06:57.12
+d3ece84c
+User
+[FocalPoint] Configured PORT: 5000 (isProduction: true, env.PORT: 5000)
+2026-01-20 13:06:57.12
+d3ece84c
+User
+[FocalPoint] Configuring middleware...
+2026-01-20 13:06:57.12
+d3ece84c
+User
+[FocalPoint] Starting server...
+2026-01-20 13:06:57.12
+d3ece84c
+User
+[FocalPoint] Backend server running on http://0.0.0.0:5000
+2026-01-20 13:06:58.29
+d3ece84c
+User
+[14b65415-eea6-43b5-8ea4-91da58e588c9] --> POST /api/sessions | IP: 118.160.46.163, 34.117.33.233, 35.191.75.242,35.224.23.137 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:06:58.93
+d3ece84c
+User
+[FocalPoint][INFO][Session_Created] { sessionId: 34, isYoutube: false }
+2026-01-20 13:06:58.93
+d3ece84c
+User
+[14b65415-eea6-43b5-8ea4-91da58e588c9] <-- POST /api/sessions 200 (641ms)
+2026-01-20 13:06:59.24
+d3ece84c
+User
+[da33630e-8d2b-476e-91ab-b7d123a448b9] --> POST /api/uploads/init | IP: 118.160.46.163, 34.117.33.233, 35.191.75.245,136.119.30.108 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:06:59.41
+d3ece84c
+User
+[da33630e-8d2b-476e-91ab-b7d123a448b9] <-- POST /api/uploads/init 200 (170ms)
+2026-01-20 13:08:02.76
+d3ece84c
+User
+[dcc645f5-64d1-4cb4-b38f-b49280d28512] --> POST /api/uploads/complete | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,35.188.154.9 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:03.15
+d3ece84c
+User
+[Upload] Completed upload upl_b9143b4a4ae34eb2a9836eaeac163030, starting Gemini transfer...
+2026-01-20 13:08:03.15
+d3ece84c
+User
+[dcc645f5-64d1-4cb4-b38f-b49280d28512] <-- POST /api/uploads/complete 200 (385ms)
+2026-01-20 13:08:03.22
+d3ece84c
+User
+[Upload] Downloading upl_b9143b4a4ae34eb2a9836eaeac163030 to /tmp/focalpoint-downloads/upl_b9143b4a4ae34eb2a9836eaeac163030_YTDown.com_YouTube_Damnation-Alley-1977-Full-Movie-4K-UHD_Media_RzTR5zClfjk_002_720p.mp4 for Gemini transfer...
+2026-01-20 13:08:03.37
+d3ece84c
+User
+[f32c56da-f42d-4afd-bdb4-b86bbb02094d] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,34.57.112.90 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:03.39
+d3ece84c
+User
+[f32c56da-f42d-4afd-bdb4-b86bbb02094d] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 200 (25ms)
+2026-01-20 13:08:05.15
+d3ece84c
+User
+[d01036ef-a602-4ecc-afdc-9b34149d3e11] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.250,34.55.97.151 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:05.17
+d3ece84c
+User
+[d01036ef-a602-4ecc-afdc-9b34149d3e11] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (25ms)
+2026-01-20 13:08:06.86
+d3ece84c
+User
+[709d07e6-3b51-4625-b9e6-a2aa1fe03fb0] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,136.119.30.108 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:06.88
+d3ece84c
+User
+[709d07e6-3b51-4625-b9e6-a2aa1fe03fb0] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (23ms)
+2026-01-20 13:08:08.57
+d3ece84c
+User
+[33133f58-69a6-4373-b655-91b23072d596] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.251,34.57.112.90 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:08.59
+d3ece84c
+User
+[33133f58-69a6-4373-b655-91b23072d596] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (22ms)
+2026-01-20 13:08:10.39
+d3ece84c
+User
+[90fcab64-c5c6-46c3-bc2a-5e9951561a7c] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.248,34.29.37.167 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:10.41
+d3ece84c
+User
+[90fcab64-c5c6-46c3-bc2a-5e9951561a7c] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (23ms)
+2026-01-20 13:08:12.10
+d3ece84c
+User
+[5a5c1b8f-e1c9-4868-9e3e-3d4d41e61c6e] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,136.119.30.108 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:12.12
+d3ece84c
+User
+[5a5c1b8f-e1c9-4868-9e3e-3d4d41e61c6e] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (23ms)
+2026-01-20 13:08:13.81
+d3ece84c
+User
+[28b09c19-1041-42ec-8b53-da6789426ae5] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,34.55.97.151 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
+2026-01-20 13:08:13.83
+d3ece84c
+User
+[28b09c19-1041-42ec-8b53-da6789426ae5] <-- GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 304 (23ms)
+2026-01-20 13:08:15.63
+d3ece84c
+User
+[456ddc7d-3e65-41f0-ba84-92e49d238373] --> GET /api/uploads/status/upl_b9143b4a4ae34eb2a9836eaeac163030 | IP: 118.160.46.163, 34.117.33.233, 35.191.74.249,35.192.213.80 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.
