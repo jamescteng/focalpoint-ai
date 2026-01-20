@@ -16,24 +16,39 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   next();
 }
 
+const QUIET_PATHS = [
+  '/api/uploads/status/',
+  '/api/analyze/status/',
+  '/api/dialogue/status/',
+];
+
+function isQuietPath(path: string): boolean {
+  return QUIET_PATHS.some(prefix => path.startsWith(prefix));
+}
+
 export function requestLoggingMiddleware(req: Request, res: Response, next: NextFunction) {
   const startTime = Date.now();
   
   const requestId = req.requestId;
   const method = req.method;
   const path = req.originalUrl || req.path;
-  const clientIp = req.headers['x-forwarded-for'] as string || 
-                   req.headers['x-real-ip'] as string || 
-                   req.socket.remoteAddress || 
-                   'unknown';
-  const userAgent = req.headers['user-agent'] || 'unknown';
   
-  console.log(`[${requestId}] --> ${method} ${path} | IP: ${clientIp} | UA: ${userAgent.substring(0, 100)}`);
+  const shouldLog = !isQuietPath(path);
   
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    console.log(`[${requestId}] <-- ${method} ${path} ${res.statusCode} (${duration}ms)`);
-  });
+  if (shouldLog) {
+    const clientIp = req.headers['x-forwarded-for'] as string || 
+                     req.headers['x-real-ip'] as string || 
+                     req.socket.remoteAddress || 
+                     'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    console.log(`[${requestId}] --> ${method} ${path} | IP: ${clientIp} | UA: ${userAgent.substring(0, 100)}`);
+    
+    res.on('finish', () => {
+      const duration = Date.now() - startTime;
+      console.log(`[${requestId}] <-- ${method} ${path} ${res.statusCode} (${duration}ms)`);
+    });
+  }
   
   next();
 }
