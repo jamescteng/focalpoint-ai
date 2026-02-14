@@ -24,7 +24,8 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 | `server/services/videoCompressor.ts` | FFmpeg 720p/2fps compression |
 | `server/services/compressionDecider.ts` | Smart compression decision logic (TDD) |
 | `server/services/progressManager.ts` | Resilient DB updates with retry, throttling, milestones |
-| `server/services/cacheService.ts` | Global Gemini context cache lifecycle (create, reuse, delete) |
+| `server/routes/questions.ts` | Post-report follow-up questions endpoint |
+| `server/services/cacheService.ts` | Persistent Gemini context cache lifecycle (create, reuse, persist) |
 | `server/personas.ts` | AI persona definitions |
 | `server/geminiService.ts` | Gemini API wrapper |
 | `server/elevenLabsService.ts` | TTS integration |
@@ -75,11 +76,29 @@ Uploaded videos get a single Gemini context cache shared across all persona anal
 **Architecture**:
 - `POST /api/analyze` creates cache once via `ensureVideoCache()` before launching jobs
 - `cacheName` passed to all `processAnalysisJob` calls
-- Cache cleaned up via `Promise.allSettled()` after all jobs complete
-- Cache TTL: 900s (15 min), safety margin: 60s for expiry checks
+- Cache persists after analysis for follow-up questions (not auto-deleted)
+- Cache TTL: 3600s (60 min), safety margin: 120s for expiry checks
 - DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
 - YouTube limitation: No cache (context caching doesn't support YouTube URLs)
 - `cacheService.ts`: `ensureVideoCache()`, `deleteVideoCache()`, `findUploadIdByFileUri()`
+
+## Post-Report Questions
+After analysis completes, users can ask follow-up questions to any persona via the Q&A tab in the right panel.
+
+**Flow**:
+1. User types a question in the Q&A tab (right panel of ScreeningRoom)
+2. `POST /api/questions` sends `{ sessionId, personaId, questions: [text] }`
+3. Server reuses persistent context cache (90% token discount) or re-creates if expired
+4. AI answers in-character, referencing specific video moments
+5. Answers are appended to the report's `answers` array in DB
+6. Frontend updates report state via `onUpdateReportAnswers` callback
+
+**Key Details**:
+- Max 10 questions per request, each under 500 characters
+- Initial analysis sends empty questions array (leaner prompts)
+- Questions removed from UploadForm; now asked post-report per persona
+- YouTube falls back to direct video call (no cache support)
+- Answers persist: visible when session is reloaded from history
 
 ## Timestamp Grounding (Search-not-Verify)
 Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid confirmation bias:

@@ -317,6 +317,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateReportAnswers = (personaId: string, newAnswers: Array<{ question: string; answer: string }>) => {
+    setReports(prev => prev.map(report => {
+      if (report.personaId !== personaId) return report;
+      return {
+        ...report,
+        answers: [...report.answers, ...newAnswers]
+      };
+    }));
+  };
+
   const selectedPersonas = project 
     ? PERSONAS.filter(p => project.selectedPersonaIds.includes(p.id))
     : PERSONAS.slice(0, 1);
@@ -441,6 +451,7 @@ const App: React.FC = () => {
               availablePersonas={availablePersonasToAdd}
               onAddPersona={addPersonaReport}
               onVideoReattach={handleVideoReattach}
+              onUpdateReportAnswers={handleUpdateReportAnswers}
               isAnalyzing={analyzingPersonaId !== null}
               analyzingPersonaId={analyzingPersonaId}
               statusMessage={statusMessage}

@@ -4,8 +4,8 @@ import { uploads } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import { FocalPointLogger } from '../utils/logger.js';
 
-const CACHE_TTL_SECONDS = 900;
-const CACHE_SAFETY_MARGIN_MS = 60_000;
+const CACHE_TTL_SECONDS = 3600;
+const CACHE_SAFETY_MARGIN_MS = 120_000;
 
 export async function ensureVideoCache(
   ai: GoogleGenAI,

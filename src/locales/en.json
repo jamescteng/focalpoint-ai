@@ -156,6 +156,14 @@
     "close": "Close",
     "optional": "Optional"
   },
+  "questions": {
+    "tab": "Q&A",
+    "placeholder": "Ask {{name}} a question about your film...",
+    "hint": "Press Enter to send. The reviewer will analyze the video to answer.",
+    "send": "Send",
+    "error": "Failed to get an answer. Please try again.",
+    "empty": "No questions yet. Ask {{name}} anything about your film."
+  },
   "youtubePlayer": {
     "invalidUrl": "Invalid YouTube URL",
     "loading": "Loading YouTube player...",

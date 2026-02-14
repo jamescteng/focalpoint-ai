@@ -32,16 +32,9 @@ interface YoutubeValidation {
   embeddable?: boolean;
 }
 
-const DEFAULT_QUESTION_KEYS = [
-  'uploadForm.defaultQuestion1',
-  'uploadForm.defaultQuestion2', 
-  'uploadForm.defaultQuestion3',
-] as const;
 
 export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = false }) => {
   const { t, i18n } = useTranslation();
-  
-  const getDefaultQuestions = () => DEFAULT_QUESTION_KEYS.map(key => t(key));
   
   const [title, setTitle] = useState('');
   const [synopsis, setSynopsis] = useState('');
@@ -51,32 +44,15 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
   const [youtubeError, setYoutubeError] = useState('');
   const [youtubeValidation, setYoutubeValidation] = useState<YoutubeValidation>({ status: 'idle' });
   const [language, setLanguage] = useState<'en' | 'zh-TW'>((i18n.language === 'zh-TW' ? 'zh-TW' : 'en'));
-  const [questions, setQuestions] = useState<string[]>(getDefaultQuestions());
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('acquisitions_director');
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevLanguageRef = useRef<string>(i18n.language);
 
   useEffect(() => {
-    const prevLang = prevLanguageRef.current;
     const newLang = i18n.language;
     setLanguage(newLang === 'zh-TW' ? 'zh-TW' : 'en');
-    
-    if (prevLang !== newLang) {
-      const oldDefaultsMap = new Map(
-        DEFAULT_QUESTION_KEYS.map(key => [t(key, { lng: prevLang }), key])
-      );
-      
-      setQuestions(prev => prev.map(q => {
-        const translationKey = oldDefaultsMap.get(q);
-        if (translationKey) {
-          return t(translationKey, { lng: newLang });
-        }
-        return q;
-      }));
-      
-      prevLanguageRef.current = newLang;
-    }
-  }, [i18n.language, t]);
+    prevLanguageRef.current = newLang;
+  }, [i18n.language]);
 
   useEffect(() => {
     if (validationTimeoutRef.current) {
@@ -158,7 +134,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
         synopsis,
         youtubeUrl,
         youtubeEmbeddable: youtubeValidation.embeddable,
-        questions,
+        questions: [],
         language,
         selectedPersonaIds: [selectedPersonaId]
       });
@@ -174,21 +150,11 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           fileSize: videoFile!.size,
           lastModified: videoFile!.lastModified,
         },
-        questions,
+        questions: [],
         language,
         selectedPersonaIds: [selectedPersonaId]
       });
     }
-  };
-
-  const addQuestion = () => setQuestions([...questions, ""]);
-  const updateQuestion = (idx: number, val: string) => {
-    const next = [...questions];
-    next[idx] = val;
-    setQuestions(next);
-  };
-  const removeQuestion = (idx: number) => {
-    setQuestions(questions.filter((_, i) => i !== idx));
   };
 
   const getPersonaRole = (personaId: string): string => {
@@ -439,36 +405,6 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">05</span>
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-700">{t('uploadForm.yourQuestions')} <span className="text-slate-400 normal-case tracking-normal font-normal">({t('common.optional')})</span></label>
-            </div>
-            <button type="button" onClick={addQuestion} className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors">
-              {t('uploadForm.addQuestion')}
-            </button>
-          </div>
-          
-          <div className="space-y-2">
-            {questions.map((q, i) => (
-              <div key={i} className="flex gap-2 group">
-                <input
-                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-base sm:text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-300"
-                  placeholder={t('uploadForm.questionPlaceholder')}
-                  value={q}
-                  onChange={(e) => updateQuestion(i, e.target.value)}
-                />
-                {questions.length > 1 && (
-                  <button type="button" onClick={() => removeQuestion(i)} className="p-2 text-slate-400 hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100 transition-all flex-shrink-0">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                )}
-              </div>
-            ))}
           </div>
         </div>
 

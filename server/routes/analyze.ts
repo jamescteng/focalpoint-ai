@@ -15,7 +15,7 @@ import { db } from '../db.js';
 import { analysisJobs } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
-import { ensureVideoCache, deleteVideoCache, findUploadIdByFileUri } from '../services/cacheService.js';
+import { ensureVideoCache, findUploadIdByFileUri } from '../services/cacheService.js';
 
 const router = Router();
 
@@ -785,12 +785,7 @@ router.post('/', analyzeLimiter, async (req, res) => {
 
     Promise.allSettled(jobPromises).then(async () => {
       if (cacheName) {
-        try {
-          await deleteVideoCache(getAI(), cacheName, cacheUploadId);
-          FocalPointLogger.info("Global_Cache_Cleaned", { cacheName, sessionId });
-        } catch (err: any) {
-          FocalPointLogger.warn("Global_Cache_Cleanup_Failed", err.message);
-        }
+        FocalPointLogger.info("Global_Cache_Kept", { cacheName, sessionId, reason: 'Persistent cache for follow-up questions' });
       }
     });
 

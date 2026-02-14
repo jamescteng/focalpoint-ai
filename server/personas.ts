@@ -155,9 +155,7 @@ Assume the reader has limited time and is evaluating whether to proceed.
 
 Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
 
-Direct responses to user-defined research objectives:
-${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
-
+${questions.length > 0 ? `Direct responses to user-defined research objectives:\n${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}\n` : ''}
 === HIGHLIGHTS vs CONCERNS DEFINITIONS ===
 
 HIGHLIGHT
@@ -275,9 +273,7 @@ Be honest about what held your attention and what didn't.
 
 Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
 
-Direct responses to user-defined research objectives:
-${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
-
+${questions.length > 0 ? `Direct responses to user-defined research objectives:\n${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}\n` : ''}
 === HIGHLIGHTS vs CONCERNS DEFINITIONS ===
 
 HIGHLIGHT
@@ -405,9 +401,7 @@ Use plain, everyday language throughout.
 
 Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
 
-Direct responses to user-defined research objectives:
-${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
-
+${questions.length > 0 ? `Direct responses to user-defined research objectives:\n${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}\n` : ''}
 === HIGHLIGHTS vs CONCERNS DEFINITIONS ===
 
 HIGHLIGHT
@@ -529,9 +523,7 @@ Use first-person language where appropriate.
 
 Exactly 5 HIGHLIGHTS and exactly 5 CONCERNS (see definitions below).
 
-Direct responses to user-defined research objectives:
-${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}
-
+${questions.length > 0 ? `Direct responses to user-defined research objectives:\n${questions.map((q, i) => `Objective ${i + 1}: ${q}`).join('\n')}\n` : ''}
 === HIGHLIGHTS vs CONCERNS DEFINITIONS ===
 
 HIGHLIGHT

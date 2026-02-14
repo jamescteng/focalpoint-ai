@@ -156,6 +156,14 @@
     "close": "關閉",
     "optional": "選填"
   },
+  "questions": {
+    "tab": "提問",
+    "placeholder": "向 {{name}} 提出關於影片的問題...",
+    "hint": "按 Enter 送出。評論者將分析影片來回答。",
+    "send": "送出",
+    "error": "回答失敗，請再試一次。",
+    "empty": "尚無提問。向 {{name}} 詢問任何關於影片的問題。"
+  },
   "youtubePlayer": {
     "invalidUrl": "無效的 YouTube 網址",
     "loading": "載入 YouTube 播放器中...",

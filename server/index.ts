@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { getAllPersonas } from './personas.js';
 import dialogueRoutes from './dialogueRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
-import { sessionsRouter, reportsRouter, voiceRouter, analyzeRouter } from './routes/index.js';
+import { sessionsRouter, reportsRouter, voiceRouter, analyzeRouter, questionsRouter } from './routes/index.js';
 import { statusLimiter } from './middleware/rateLimiting.js';
 import { FocalPointLogger } from './utils/logger.js';
 import { requestIdMiddleware, requestLoggingMiddleware, globalErrorHandler } from './middleware/requestId.js';
@@ -133,6 +133,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/sessions', reportsRouter);
 app.use('/api/sessions', voiceRouter);
 app.use('/api/analyze', analyzeRouter);
+app.use('/api/questions', questionsRouter);
 
 app.get('/api/voice-audio/*splat', statusLimiter, async (req, res) => {
   try {
