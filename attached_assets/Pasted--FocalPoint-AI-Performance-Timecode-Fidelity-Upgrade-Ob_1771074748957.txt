@@ -1,0 +1,269 @@
+🎬 FocalPoint AI — Performance + Timecode Fidelity Upgrade
+Objective
+
+解決兩個核心問題：
+
+整體分析流程過慢
+
+多 persona 分析重複 ingest 同一部影片
+
+上傳 pipeline I/O 過多
+
+Grounding pass 增加 latency
+
+Timecode 不準確
+
+描述是正確的，但時間與實際畫面錯位
+
+長片（90+ min）誤差嚴重
+
+PHASE A — Model & Cache Architecture Refactor
+Ticket A1 — Remove Gemini 3 Pro, Standardize Model Strategy
+Goal
+
+統一使用 gemini-3-flash-preview，fallback 至 gemini-2.5-flash。
+
+Scope
+
+移除所有 gemini-3-pro* references
+
+建立統一 model selector function
+
+Implementation
+
+File: server/geminiClient.ts (create if missing)
+
+export async function callGeminiWithFallback(config) {
+  try {
+    return await callGemini("gemini-3-flash-preview", config);
+  } catch (err) {
+    if (isRetryable(err)) {
+      return await callGemini("gemini-2.5-flash", config);
+    }
+    throw err;
+  }
+}
+
+Acceptance Criteria
+
+Production logs 不再出現 pro model
+
+Fallback 僅在 transient failure 發生
+
+Ticket A2 — Global Explicit Context Cache (High ROI Optimization)
+Goal
+
+影片 ACTIVE 後建立「全域 Cache」，所有 persona 的 Pass 1 / Pass 2 共用。
+
+Database Changes
+
+Migration:
+
+ALTER TABLE uploads
+ADD COLUMN cache_name TEXT,
+ADD COLUMN cache_model TEXT,
+ADD COLUMN cache_status TEXT DEFAULT 'NONE',
+ADD COLUMN cache_expires_at TIMESTAMP,
+ADD COLUMN cache_last_error TEXT;
+
+Implementation
+New Helper
+
+File: server/cacheService.ts
+
+export async function ensureVideoCache(uploadId: string) {
+  const upload = await db.getUpload(uploadId);
+
+  if (upload.cache_name && upload.cache_expires_at > new Date()) {
+    log("Cache_Hit", uploadId);
+    return upload.cache_name;
+  }
+
+  log("Cache_Create_Start", uploadId);
+
+  const cache = await gemini.createCache({
+    model: "gemini-3-flash-preview",
+    fileUri: upload.gemini_file_uri,
+    ttlSeconds: 3600
+  });
+
+  await db.updateUpload(uploadId, {
+    cache_name: cache.name,
+    cache_model: "gemini-3-flash-preview",
+    cache_status: "ACTIVE",
+    cache_expires_at: cache.expiresAt
+  });
+
+  log("Cache_Create_Success", uploadId);
+
+  return cache.name;
+}
+
+Modify Analysis Flow
+
+File: processAnalysisJob()
+
+Before calling Pass 1:
+
+const cacheName = await ensureVideoCache(uploadId);
+
+
+Pass to Gemini:
+
+generateContent({
+  cachedContent: cacheName,
+  ...
+})
+
+Expected Outcome
+Before	After
+每 persona 重讀影片	所有 persona 共用 cache
+4 personas = 4x video cost	1x video cost
+分析 wall time 高	wall time 顯著下降
+PHASE B — Upload Pipeline Optimization
+Ticket B1 — Remove Server Temp File I/O
+Current Problem
+
+Object Storage → temp file → Gemini
+多一次完整 disk I/O。
+
+New Flow
+
+Object Storage → Range Stream → Gemini Resumable Upload
+
+Implementation
+
+File: transferToGemini()
+
+Remove:
+
+downloadToTempFile()
+
+
+Replace with:
+
+for (offset = 0; offset < totalSize; offset += chunkSize) {
+  const chunk = await objectStorage.getRange(offset, offset + chunkSize);
+  await gemini.uploadChunk(resumableUrl, chunk, offset);
+}
+
+Acceptance Criteria
+
+不再生成 temp file
+
+server disk I/O 顯著下降
+
+upload wall time 降低
+
+PHASE C — Timecode Fidelity Upgrade
+Ticket C1 — Extend Schema (Evidence + Confidence)
+Add Fields
+
+For each highlight/concern:
+
+{
+  "seconds": number,
+  "timestamp": "HH:MM:SS",
+  "timecode_evidence": "string",
+  "timecode_confidence": "high|medium|low"
+}
+
+Prompt Update (Pass 1)
+
+Add rule:
+
+After choosing seconds, you MUST provide one sentence of concrete visual or audio evidence visible at that exact time.
+If you cannot provide evidence, reduce confidence to "low" and propose a range.
+
+Ticket C2 — Grounding Verification Pass
+Goal
+
+Second pass 不重新分析影片，而是「定位」已描述事件。
+
+Grounding Prompt (Per 10 items, single call)
+
+System:
+
+You are a verification assistant.
+Your job is to locate described events in the video and verify timestamps.
+
+
+User:
+
+For each item below:
+- original_seconds
+- description
+
+Return:
+- original_seconds
+- corrected_seconds
+- corrected_timestamp
+- confidence (high/medium/low)
+- evidence
+- range_seconds (if low)
+
+Correction Logic
+if (confidence !== "low") {
+  item.seconds = corrected_seconds;
+}
+
+Acceptance Criteria
+
+每 item 都有 evidence
+
+長片 time drift 顯著降低
+
+若錯誤 → confidence=low 而非假精準
+
+PHASE D — Polling Optimization
+Ticket D1 — Adaptive Polling for ACTIVE
+
+Replace fixed 15s polling:
+
+Time	Interval
+0–60s	5s
+60–180s	10s
+180s+	15–30s
+Ticket D2 — Frontend Job Polling Backoff
+Time	Interval
+0–30s	2s
+30–120s	5s
+120s+	10s
+PHASE E — Progress Write Safety
+Ticket E1 — Make Progress Updates Non-Fatal
+Requirements
+
+不 await progress DB write
+
+每 5 秒最多寫一次
+
+DB error 不應中止 job
+
+throttle(progressUpdate, 5000);
+
+Architecture After Refactor
+Browser
+   │
+   ├── Presigned Upload → Object Storage
+   │
+Server
+   ├── Stream Range → Gemini
+   │
+   ├── Create Global Cache (once)
+   │
+   ├── Persona 1 (cached)
+   ├── Persona 2 (cached)
+   ├── Persona 3 (cached)
+   ├── Persona 4 (cached)
+   │
+   ├── Grounding Pass (cached)
+   │
+Frontend Poll → Completed Report
+
+Expected Impact
+Area	Improvement
+Multi-persona latency	↓ 50–70%
+Gemini token cost	↓ up to 80–90%
+Timecode accuracy	Significantly improved
+Long-film drift	Reduced
+Server I/O	Reduced
