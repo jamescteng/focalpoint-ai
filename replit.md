@@ -6,7 +6,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
 - **Backend**: Express (port 3001), proxied via Vite `/api`
-- **AI**: Google Gemini (`gemini-3-flash-preview`)
+- **AI**: Google Gemini (`gemini-3-flash-preview`, `MEDIA_RESOLUTION_LOW` for ~171min max)
 - **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { GoogleGenAI, Type, createPartFromUri, createUserContent } from "@google/genai";
+import { GoogleGenAI, Type, createPartFromUri, createUserContent, MediaResolution } from "@google/genai";
 import { getPersonaById, getAllPersonas, PersonaConfig } from '../personas.js';
 import { FocalPointLogger } from '../utils/logger.js';
 import { analyzeLimiter, analyzeStatusLimiter } from '../middleware/rateLimiting.js';
@@ -175,6 +175,7 @@ async function callGeminiWithFallback(
     },
     config: {
       systemInstruction,
+      mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -447,6 +448,7 @@ Only set "changed" to true if you found a meaningful discrepancy.
           },
           config: {
             systemInstruction: `You are a precise video timestamp verifier. Your job is to verify claimed timestamps against the actual video content. Respond in JSON only.`,
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
             responseMimeType: "application/json",
           }
         }),
@@ -472,6 +474,7 @@ Only set "changed" to true if you found a meaningful discrepancy.
           contents: verifyPrompt,
           config: {
             cachedContent: cacheName,
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
             responseMimeType: "application/json",
           }
         }),
