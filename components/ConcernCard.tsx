@@ -10,6 +10,7 @@ interface Concern {
   severity: number;
   category: string;
   suggested_fix: string;
+  timecode_confidence?: 'high' | 'medium' | 'low';
 }
 
 interface ConcernCardProps {
@@ -26,7 +27,10 @@ export const ConcernCard: React.FC<ConcernCardProps> = ({ concern, onSeek }) => 
       className="p-5 text-left flex flex-col"
     >
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Badge variant="dark">{concern.timestamp}</Badge>
+        <Badge variant="dark" className={concern.timecode_confidence === 'low' ? 'opacity-50' : undefined}>
+          {concern.timestamp}
+          {concern.timecode_confidence === 'low' && <span title="Approximate timestamp"> ~</span>}
+        </Badge>
         <Pill icon={getCategoryIcon(concern.category)} variant="default">
           {formatCategory(concern.category)}
         </Pill>

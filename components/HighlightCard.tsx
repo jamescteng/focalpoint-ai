@@ -9,6 +9,7 @@ interface Highlight {
   summary: string;
   why_it_works: string;
   category: string;
+  timecode_confidence?: 'high' | 'medium' | 'low';
 }
 
 interface HighlightCardProps {
@@ -25,7 +26,10 @@ export const HighlightCard: React.FC<HighlightCardProps> = ({ highlight, onSeek 
       className="p-5 text-left flex flex-col"
     >
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Badge variant="dark">{highlight.timestamp}</Badge>
+        <Badge variant="dark" className={highlight.timecode_confidence === 'low' ? 'opacity-50' : undefined}>
+          {highlight.timestamp}
+          {highlight.timecode_confidence === 'low' && <span title="Approximate timestamp"> ~</span>}
+        </Badge>
         <Pill icon={getCategoryIcon(highlight.category)} variant="highlight">
           {formatCategory(highlight.category)}
         </Pill>

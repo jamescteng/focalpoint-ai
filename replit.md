@@ -82,7 +82,9 @@ Analysis uses a two-pass system to improve timestamp accuracy:
 - Context cache created from the already-ACTIVE fileUri (no re-upload)
 - Cache TTL: 5 minutes (auto-deleted after use)
 - Grounding is non-blocking: if it fails, Pass 1 results are used as-is
-- Logs: `Grounding_Cache_Created`, `Grounding_Complete`, `Grounding_Failed`
+- YouTube limitation: Context caching doesn't support YouTube URLs, so grounding runs as direct call (no cache) for YouTube inputs
+- Frontend: Low-confidence timestamps show dimmed with `~` suffix
+- Logs: `Grounding_Cache_Created`, `Grounding_Direct`, `Grounding_Complete`, `Grounding_Failed`
 
 ## API Resilience
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
