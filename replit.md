@@ -68,6 +68,22 @@ Job statuses: `pending` → `processing` → `completed` | `failed`
 
 Database table: `analysis_jobs` (jobId, sessionId, personaId, status, result, lastError, createdAt, completedAt)
 
+## Timestamp Grounding (Two-Pass Analysis)
+Analysis uses a two-pass system to improve timestamp accuracy:
+
+**Pass 1 (Analysis)**: Gemini analyzes the video and generates highlights/concerns with:
+- `seconds` — claimed timestamp
+- `timecode_evidence` — concrete visual/audio proof at that moment
+- `timecode_confidence` — high/medium/low self-assessment
+
+**Pass 2 (Grounding Verification)**: Using Gemini context caching (90% token discount), a second call verifies all 10 timestamps against the cached video in a single request. Corrected timestamps replace originals.
+
+**Architecture**:
+- Context cache created from the already-ACTIVE fileUri (no re-upload)
+- Cache TTL: 5 minutes (auto-deleted after use)
+- Grounding is non-blocking: if it fails, Pass 1 results are used as-is
+- Logs: `Grounding_Cache_Created`, `Grounding_Complete`, `Grounding_Failed`
+
 ## API Resilience
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
 - **API timeout**: 120 seconds per request via `withTimeout()` wrapper - prevents hanging connections

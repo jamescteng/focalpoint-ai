@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { GoogleGenAI, Type, createPartFromUri } from "@google/genai";
+import { GoogleGenAI, Type, createPartFromUri, createUserContent } from "@google/genai";
 import { getPersonaById, getAllPersonas, PersonaConfig } from '../personas.js';
 import { FocalPointLogger } from '../utils/logger.js';
 import { analyzeLimiter, analyzeStatusLimiter } from '../middleware/rateLimiting.js';
@@ -187,11 +187,13 @@ async function callGeminiWithFallback(
               properties: {
                 timestamp: { type: Type.STRING },
                 seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+                timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'close-up of protagonist crying', 'explosion sound effect begins', 'title card appears'." },
+                timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
                 summary: { type: Type.STRING },
                 why_it_works: { type: Type.STRING },
                 category: { type: Type.STRING, enum: persona.highlightCategories }
               },
-              required: ["timestamp", "seconds", "summary", "why_it_works", "category"]
+              required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "summary", "why_it_works", "category"]
             }
           },
           concerns: {
@@ -201,13 +203,15 @@ async function callGeminiWithFallback(
               properties: {
                 timestamp: { type: Type.STRING },
                 seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+                timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'dialogue about the mission begins', 'camera pans to empty room', 'background music shifts tone'." },
+                timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
                 issue: { type: Type.STRING },
                 impact: { type: Type.STRING },
                 severity: { type: Type.NUMBER },
                 category: { type: Type.STRING, enum: persona.concernCategories },
                 suggested_fix: { type: Type.STRING }
               },
-              required: ["timestamp", "seconds", "issue", "impact", "severity", "category", "suggested_fix"]
+              required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "issue", "impact", "severity", "category", "suggested_fix"]
             }
           },
           answers: {
@@ -352,6 +356,177 @@ async function analyzeWithPersona(
   }
 }
 
+async function groundTimestamps(
+  ai: GoogleGenAI,
+  report: any,
+  params: {
+    title: string;
+    fileUri?: string;
+    fileMimeType?: string;
+    youtubeUrl?: string;
+    langName: string;
+  }
+): Promise<any> {
+  const items = [
+    ...(report.highlights || []).map((h: any, i: number) => ({
+      index: i,
+      type: 'highlight' as const,
+      timestamp: h.timestamp,
+      seconds: h.seconds,
+      evidence: h.timecode_evidence,
+      confidence: h.timecode_confidence,
+      description: h.summary,
+    })),
+    ...(report.concerns || []).map((c: any, i: number) => ({
+      index: i,
+      type: 'concern' as const,
+      timestamp: c.timestamp,
+      seconds: c.seconds,
+      evidence: c.timecode_evidence,
+      confidence: c.timecode_confidence,
+      description: c.issue,
+    })),
+  ];
+
+  const itemsList = items.map((item, idx) =>
+    `[${idx}] ${item.type.toUpperCase()} | claimed: ${item.timestamp} (${item.seconds}s) | evidence: "${item.evidence}" | confidence: ${item.confidence} | "${item.description}"`
+  ).join('\n');
+
+  const verifyPrompt = `
+You are a timestamp verification specialist. You have already analyzed this film. Now verify the following ${items.length} timestamps against the actual video.
+
+FILM: "${params.title}"
+
+For each item below, locate the described moment in the video and verify whether the claimed timestamp is correct.
+
+ITEMS TO VERIFY:
+${itemsList}
+
+INSTRUCTIONS:
+1. For each item, find the actual moment in the video that matches the description and evidence.
+2. If the claimed timestamp is correct (within 10 seconds), keep it.
+3. If the claimed timestamp is WRONG, provide the corrected timestamp.
+4. Update the confidence based on your verification.
+
+Respond strictly in JSON. Return an array of objects, one per item, in the same order:
+{
+  "verified": [
+    {
+      "index": 0,
+      "original_seconds": 120,
+      "corrected_seconds": 135,
+      "corrected_timestamp": "2:15",
+      "confidence": "high",
+      "evidence": "Close-up of the main character entering the building",
+      "changed": true
+    }
+  ]
+}
+
+If the original timestamp is accurate (within 10 seconds), set "changed" to false and keep the original values.
+Only set "changed" to true if you found a meaningful discrepancy.
+`;
+
+  let cacheName: string | null = null;
+  const isYoutube = !!params.youtubeUrl;
+
+  try {
+    const videoPart = isYoutube
+      ? { fileData: { fileUri: params.youtubeUrl!, mimeType: 'video/*' } }
+      : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
+
+    let response;
+
+    if (isYoutube) {
+      FocalPointLogger.info("Grounding_Direct", { reason: 'YouTube URL (no cache)' });
+      response = await withTimeout(
+        ai.models.generateContent({
+          model: PRIMARY_MODEL,
+          contents: {
+            parts: [videoPart, { text: verifyPrompt }]
+          },
+          config: {
+            systemInstruction: `You are a precise video timestamp verifier. Your job is to verify claimed timestamps against the actual video content. Respond in JSON only.`,
+            responseMimeType: "application/json",
+          }
+        }),
+        API_TIMEOUT_MS,
+        'Grounding_Verify_YouTube'
+      );
+    } else {
+      const cache = await ai.caches.create({
+        model: PRIMARY_MODEL,
+        config: {
+          contents: [createUserContent(videoPart)],
+          systemInstruction: `You are a precise video timestamp verifier. Your job is to verify claimed timestamps against the actual video content. Respond in JSON only.`,
+          ttl: '300s',
+        }
+      });
+
+      cacheName = cache.name!;
+      FocalPointLogger.info("Grounding_Cache_Created", { cacheName, model: PRIMARY_MODEL });
+
+      response = await withTimeout(
+        ai.models.generateContent({
+          model: PRIMARY_MODEL,
+          contents: verifyPrompt,
+          config: {
+            cachedContent: cacheName,
+            responseMimeType: "application/json",
+          }
+        }),
+        API_TIMEOUT_MS,
+        'Grounding_Verify'
+      );
+    }
+
+    const text = response.text || '';
+    const parsed = JSON.parse(text);
+    const verified = parsed.verified || parsed;
+
+    let correctedCount = 0;
+
+    for (const v of verified) {
+      const item = items[v.index];
+      if (!item) continue;
+
+      if (v.changed) {
+        correctedCount++;
+        if (item.type === 'highlight') {
+          report.highlights[item.index].seconds = v.corrected_seconds;
+          report.highlights[item.index].timestamp = v.corrected_timestamp;
+          report.highlights[item.index].timecode_confidence = v.confidence;
+          if (v.evidence) report.highlights[item.index].timecode_evidence = v.evidence;
+        } else {
+          report.concerns[item.index].seconds = v.corrected_seconds;
+          report.concerns[item.index].timestamp = v.corrected_timestamp;
+          report.concerns[item.index].timecode_confidence = v.confidence;
+          if (v.evidence) report.concerns[item.index].timecode_evidence = v.evidence;
+        }
+      } else {
+        if (item.type === 'highlight') {
+          report.highlights[item.index].timecode_confidence = v.confidence || item.confidence;
+        } else {
+          report.concerns[item.index].timecode_confidence = v.confidence || item.confidence;
+        }
+      }
+    }
+
+    FocalPointLogger.info("Grounding_Complete", { correctedCount, totalItems: items.length });
+    return report;
+
+  } catch (error: any) {
+    FocalPointLogger.warn("Grounding_Failed", `Skipping grounding pass: ${error.message}`);
+    return report;
+  } finally {
+    if (cacheName) {
+      ai.caches.delete({ name: cacheName }).catch(err => {
+        FocalPointLogger.warn("Grounding_Cache_Cleanup", `Failed to delete cache: ${err.message}`);
+      });
+    }
+  }
+}
+
 const YOUTUBE_URL_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
 
 function isValidYoutubeUrl(url: string): boolean {
@@ -398,7 +573,24 @@ async function processAnalysisJob(
 
     const result = await analyzeWithPersona(ai, persona, params);
 
-    if (result.status === 'success') {
+    if (result.status === 'success' && result.report) {
+      FocalPointLogger.info("Grounding_Start", { jobId, persona: personaId });
+      result.report = await groundTimestamps(ai, result.report, {
+        title: params.title,
+        fileUri: params.fileUri,
+        fileMimeType: params.fileMimeType,
+        youtubeUrl: params.youtubeUrl,
+        langName: params.langName,
+      });
+
+      await db.update(analysisJobs)
+        .set({ 
+          status: 'completed', 
+          result: { ...result, sessionId },
+          completedAt: new Date() 
+        })
+        .where(eq(analysisJobs.jobId, jobId));
+    } else if (result.status === 'success') {
       await db.update(analysisJobs)
         .set({ 
           status: 'completed', 

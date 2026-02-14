@@ -53,6 +53,22 @@ Examples:
 
 DO NOT provide the duration of the scene (e.g., if a scene is from 12:55 to 13:30, do NOT return 35).
 DO NOT return random small numbers. The "seconds" field must be the total elapsed time in seconds from video start.
+
+TIMESTAMP EVIDENCE REQUIREMENT (STRICT):
+For every highlight and concern, you MUST also provide:
+
+1. "timecode_evidence" — Describe the specific visual or audio element you can see or hear at the exact moment of this timestamp. This must be a concrete, verifiable observation, NOT a narrative summary.
+   GOOD: "Wide shot of the desert highway with the armored vehicle approaching from the left"
+   GOOD: "Sound of glass breaking followed by a woman's scream"
+   BAD: "The tension builds in this scene" (too abstract, not verifiable)
+   BAD: "An important moment in the story" (no visual/audio evidence)
+
+2. "timecode_confidence" — Rate your confidence in the timestamp accuracy:
+   - "high" — You can identify the exact visual frame or audio cue at this second
+   - "medium" — You are within the correct scene but the exact second is approximate
+   - "low" — You are estimating based on narrative position or pacing
+
+RULE: If you cannot provide concrete visual or audio evidence for a timestamp, you MUST set confidence to "low". Do NOT fabricate evidence to claim "high" confidence.
 `;
 
 const SUMMARY_READABILITY_GUIDELINES = `
