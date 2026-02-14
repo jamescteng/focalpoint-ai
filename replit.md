@@ -68,23 +68,34 @@ Job statuses: `pending` → `processing` → `completed` | `failed`
 
 Database table: `analysis_jobs` (jobId, sessionId, personaId, status, result, lastError, createdAt, completedAt)
 
-## Timestamp Grounding (Two-Pass Analysis)
-Analysis uses a two-pass system to improve timestamp accuracy:
-
-**Pass 1 (Analysis)**: Gemini analyzes the video and generates highlights/concerns with:
-- `seconds` — claimed timestamp
-- `timecode_evidence` — concrete visual/audio proof at that moment
-- `timecode_confidence` — high/medium/low self-assessment
-
-**Pass 2 (Grounding Verification)**: Using Gemini context caching (90% token discount), a second call verifies all 10 timestamps against the cached video in a single request. Corrected timestamps replace originals.
+## Global Context Cache
+Uploaded videos get a single Gemini context cache shared across all persona analyses + grounding passes (up to 8 API calls at 90% token discount).
 
 **Architecture**:
-- Context cache created from the already-ACTIVE fileUri (no re-upload)
-- Cache TTL: 5 minutes (auto-deleted after use)
-- Grounding is non-blocking: if it fails, Pass 1 results are used as-is
-- YouTube limitation: Context caching doesn't support YouTube URLs, so grounding runs as direct call (no cache) for YouTube inputs
+- `POST /api/analyze` creates cache once via `ensureVideoCache()` before launching jobs
+- `cacheName` passed to all `processAnalysisJob` calls
+- Cache cleaned up via `Promise.allSettled()` after all jobs complete
+- Cache TTL: 900s (15 min), safety margin: 60s for expiry checks
+- DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
+- YouTube limitation: No cache (context caching doesn't support YouTube URLs)
+- `cacheService.ts`: `ensureVideoCache()`, `deleteVideoCache()`, `findUploadIdByFileUri()`
+
+## Timestamp Grounding (Search-not-Verify)
+Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid confirmation bias:
+
+**Pass 1 (Analysis)**: Gemini analyzes the video with `callGeminiWithFallback()` (uses cache when available).
+
+**Pass 2 (Grounding Search)**: Strips timestamps from prompt. Forces AI to independently locate each moment by description + visual/audio clue. Confidence computed from delta between Pass 1 and Pass 2 results:
+- delta ≤ 10s → high confidence (timestamp kept)
+- delta ≤ 30s → medium confidence (timestamp corrected)
+- delta > 30s → low confidence (timestamp corrected, shown dimmed)
+
+**Architecture**:
+- Uses the same global cache as Pass 1 (no separate cache creation)
+- YouTube: Falls back to direct call (no cache)
+- Non-blocking: if grounding fails, Pass 1 results used as-is
 - Frontend: Low-confidence timestamps show dimmed with `~` suffix
-- Logs: `Grounding_Cache_Created`, `Grounding_Direct`, `Grounding_Complete`, `Grounding_Failed`
+- Logs: `Grounding_Cached`, `Grounding_Direct`, `Grounding_Complete`, `Grounding_Failed`
 
 ## API Resilience
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)

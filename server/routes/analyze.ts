@@ -15,6 +15,7 @@ import { db } from '../db.js';
 import { analysisJobs } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
+import { ensureVideoCache, deleteVideoCache, findUploadIdByFileUri } from '../services/cacheService.js';
 
 const router = Router();
 
@@ -151,6 +152,7 @@ async function callGeminiWithFallback(
     fileUri?: string;
     fileMimeType?: string;
     youtubeUrl?: string;
+    cacheName?: string;
   }
 ): Promise<{ response: any; modelUsed: string }> {
   const systemInstruction = persona.systemInstruction(params.langName);
@@ -162,11 +164,21 @@ async function callGeminiWithFallback(
     langName: params.langName
   });
 
+  const useCached = !!params.cacheName;
+
   const videoPart = params.youtubeUrl
     ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
     : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
 
-  const requestConfig = {
+  const requestConfig = useCached ? {
+    contents: userPrompt,
+    config: {
+      cachedContent: params.cacheName!,
+      mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+      responseMimeType: "application/json",
+      responseSchema: buildResponseSchema(persona),
+    }
+  } : {
     contents: {
       parts: [
         videoPart,
@@ -177,67 +189,32 @@ async function callGeminiWithFallback(
       systemInstruction,
       mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          executive_summary: { type: Type.STRING },
-          highlights: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                timestamp: { type: Type.STRING },
-                seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
-                timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'close-up of protagonist crying', 'explosion sound effect begins', 'title card appears'." },
-                timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
-                summary: { type: Type.STRING },
-                why_it_works: { type: Type.STRING },
-                category: { type: Type.STRING, enum: persona.highlightCategories }
-              },
-              required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "summary", "why_it_works", "category"]
-            }
-          },
-          concerns: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                timestamp: { type: Type.STRING },
-                seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
-                timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'dialogue about the mission begins', 'camera pans to empty room', 'background music shifts tone'." },
-                timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
-                issue: { type: Type.STRING },
-                impact: { type: Type.STRING },
-                severity: { type: Type.NUMBER },
-                category: { type: Type.STRING, enum: persona.concernCategories },
-                suggested_fix: { type: Type.STRING }
-              },
-              required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "issue", "impact", "severity", "category", "suggested_fix"]
-            }
-          },
-          answers: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                question: { type: Type.STRING },
-                answer: { type: Type.STRING }
-              },
-              required: ["question", "answer"]
-            }
-          }
-        },
-        required: ["executive_summary", "highlights", "concerns", "answers"]
-      }
+      responseSchema: buildResponseSchema(persona),
     }
   };
 
   FocalPointLogger.info("API_Call", { 
     model: PRIMARY_MODEL, 
     persona: persona.id, 
+    cached: useCached,
     fileUri: params.fileUri,
     youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined
   });
+
+  const uncachedConfig = {
+    contents: {
+      parts: [
+        videoPart,
+        { text: userPrompt }
+      ]
+    },
+    config: {
+      systemInstruction,
+      mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+      responseMimeType: "application/json",
+      responseSchema: buildResponseSchema(persona),
+    }
+  };
 
   try {
     const response = await withRetries(
@@ -253,23 +230,36 @@ async function callGeminiWithFallback(
     );
     return { response, modelUsed: PRIMARY_MODEL };
   } catch (primaryError: any) {
+    if (useCached && isCacheError(primaryError)) {
+      FocalPointLogger.warn("Cache_Fallback", `Cache expired/invalid for ${persona.id}, retrying without cache`);
+      try {
+        const response = await withRetries(
+          () => withTimeout(
+            ai.models.generateContent({
+              model: PRIMARY_MODEL,
+              ...uncachedConfig
+            }),
+            API_TIMEOUT_MS,
+            `${PRIMARY_MODEL}_${persona.id}_uncached`
+          ),
+          `Gemini_${PRIMARY_MODEL}_${persona.id}_uncached`
+        );
+        return { response, modelUsed: PRIMARY_MODEL };
+      } catch (uncachedError: any) {
+        FocalPointLogger.error("Cache_Fallback_Failed", `Uncached retry also failed for ${persona.id}: ${uncachedError.message}`);
+        throw uncachedError;
+      }
+    }
+
     if (shouldTryFallbackModel(primaryError)) {
       FocalPointLogger.warn("Model_Fallback", `${PRIMARY_MODEL} failed after retries, falling back to ${FALLBACK_MODEL}`);
-      
-      FocalPointLogger.info("API_Call", { 
-        model: FALLBACK_MODEL, 
-        persona: persona.id, 
-        fileUri: params.fileUri,
-        youtubeUrl: params.youtubeUrl ? '[YouTube]' : undefined,
-        fallback: true
-      });
 
       try {
         const response = await withRetries(
           () => withTimeout(
             ai.models.generateContent({
               model: FALLBACK_MODEL,
-              ...requestConfig
+              ...uncachedConfig
             }),
             API_TIMEOUT_MS,
             `${FALLBACK_MODEL}_${persona.id}`
@@ -286,6 +276,66 @@ async function callGeminiWithFallback(
   }
 }
 
+function isCacheError(error: any): boolean {
+  const msg = (error?.message || '').toLowerCase();
+  return msg.includes('cache') || msg.includes('expired') || msg.includes('not found') || msg.includes('invalid cached');
+}
+
+function buildResponseSchema(persona: PersonaConfig) {
+  return {
+    type: Type.OBJECT,
+    properties: {
+      executive_summary: { type: Type.STRING },
+      highlights: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            timestamp: { type: Type.STRING },
+            seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+            timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'close-up of protagonist crying', 'explosion sound effect begins', 'title card appears'." },
+            timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
+            summary: { type: Type.STRING },
+            why_it_works: { type: Type.STRING },
+            category: { type: Type.STRING, enum: persona.highlightCategories }
+          },
+          required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "summary", "why_it_works", "category"]
+        }
+      },
+      concerns: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            timestamp: { type: Type.STRING },
+            seconds: { type: Type.NUMBER, description: "The absolute start time in total seconds from the beginning of the video. Example: For a clip at 10:05, this value must be 605. Do not provide the duration." },
+            timecode_evidence: { type: Type.STRING, description: "Describe the specific visual or audio element visible/audible at this exact moment that proves this timestamp is correct. E.g. 'dialogue about the mission begins', 'camera pans to empty room', 'background music shifts tone'." },
+            timecode_confidence: { type: Type.STRING, enum: ["high", "medium", "low"], description: "How confident you are that this timestamp is accurate. 'high' = you can see/hear the exact moment. 'medium' = approximate based on scene context. 'low' = estimated from narrative position." },
+            issue: { type: Type.STRING },
+            impact: { type: Type.STRING },
+            severity: { type: Type.NUMBER },
+            category: { type: Type.STRING, enum: persona.concernCategories },
+            suggested_fix: { type: Type.STRING }
+          },
+          required: ["timestamp", "seconds", "timecode_evidence", "timecode_confidence", "issue", "impact", "severity", "category", "suggested_fix"]
+        }
+      },
+      answers: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            question: { type: Type.STRING },
+            answer: { type: Type.STRING }
+          },
+          required: ["question", "answer"]
+        }
+      }
+    },
+    required: ["executive_summary", "highlights", "concerns", "answers"]
+  };
+}
+
 async function analyzeWithPersona(
   ai: GoogleGenAI,
   persona: PersonaConfig,
@@ -298,6 +348,7 @@ async function analyzeWithPersona(
     fileUri?: string;
     fileMimeType?: string;
     youtubeUrl?: string;
+    cacheName?: string;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[]; modelUsed?: string }> {
   try {
@@ -366,152 +417,146 @@ async function groundTimestamps(
     fileMimeType?: string;
     youtubeUrl?: string;
     langName: string;
+    cacheName?: string;
   }
 ): Promise<any> {
   const items = [
     ...(report.highlights || []).map((h: any, i: number) => ({
       index: i,
       type: 'highlight' as const,
-      timestamp: h.timestamp,
-      seconds: h.seconds,
+      originalSeconds: h.seconds,
       evidence: h.timecode_evidence,
-      confidence: h.timecode_confidence,
       description: h.summary,
     })),
     ...(report.concerns || []).map((c: any, i: number) => ({
       index: i,
       type: 'concern' as const,
-      timestamp: c.timestamp,
-      seconds: c.seconds,
+      originalSeconds: c.seconds,
       evidence: c.timecode_evidence,
-      confidence: c.timecode_confidence,
       description: c.issue,
     })),
   ];
 
   const itemsList = items.map((item, idx) =>
-    `[${idx}] ${item.type.toUpperCase()} | claimed: ${item.timestamp} (${item.seconds}s) | evidence: "${item.evidence}" | confidence: ${item.confidence} | "${item.description}"`
+    `[${idx}] ${item.type.toUpperCase()} | description: "${item.description}" | visual/audio clue: "${item.evidence}"`
   ).join('\n');
 
-  const verifyPrompt = `
-You are a timestamp verification specialist. You have already analyzed this film. Now verify the following ${items.length} timestamps against the actual video.
+  const searchPrompt = `
+You are a timestamp retrieval specialist. Search the video for each described moment and return the exact time where it occurs. Do NOT guess — you must locate each event by its visual or audio clue.
 
 FILM: "${params.title}"
 
-For each item below, locate the described moment in the video and verify whether the claimed timestamp is correct.
-
-ITEMS TO VERIFY:
+ITEMS TO LOCATE (${items.length} total):
 ${itemsList}
 
 INSTRUCTIONS:
-1. For each item, find the actual moment in the video that matches the description and evidence.
-2. If the claimed timestamp is correct (within 10 seconds), keep it.
-3. If the claimed timestamp is WRONG, provide the corrected timestamp.
-4. Update the confidence based on your verification.
+1. For each item, search the video for the described moment using the visual/audio clue.
+2. Return the START second (when the moment begins) and END second (when it ends or transitions).
+3. Provide a brief evidence description of what you see/hear at that exact moment.
+4. If you cannot confidently locate the moment, set confidence to "low" and provide your best estimate.
 
-Respond strictly in JSON. Return an array of objects, one per item, in the same order:
+Respond strictly in JSON:
 {
-  "verified": [
+  "located": [
     {
       "index": 0,
-      "original_seconds": 120,
-      "corrected_seconds": 135,
-      "corrected_timestamp": "2:15",
+      "start_seconds": 135,
+      "end_seconds": 142,
+      "timestamp": "2:15",
       "confidence": "high",
-      "evidence": "Close-up of the main character entering the building",
-      "changed": true
+      "evidence": "Close-up of the main character entering the building"
     }
   ]
 }
-
-If the original timestamp is accurate (within 10 seconds), set "changed" to false and keep the original values.
-Only set "changed" to true if you found a meaningful discrepancy.
 `;
 
-  let cacheName: string | null = null;
   const isYoutube = !!params.youtubeUrl;
+  const useSharedCache = !!params.cacheName;
 
   try {
-    const videoPart = isYoutube
-      ? { fileData: { fileUri: params.youtubeUrl!, mimeType: 'video/*' } }
-      : createPartFromUri(params.fileUri!, params.fileMimeType || 'video/mp4');
-
     let response;
 
-    if (isYoutube) {
+    if (useSharedCache) {
+      FocalPointLogger.info("Grounding_Cached", { cacheName: params.cacheName });
+      response = await withTimeout(
+        ai.models.generateContent({
+          model: PRIMARY_MODEL,
+          contents: searchPrompt,
+          config: {
+            cachedContent: params.cacheName!,
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+            responseMimeType: "application/json",
+          }
+        }),
+        API_TIMEOUT_MS,
+        'Grounding_Search_Cached'
+      );
+    } else if (isYoutube) {
+      const videoPart = { fileData: { fileUri: params.youtubeUrl!, mimeType: 'video/*' } };
       FocalPointLogger.info("Grounding_Direct", { reason: 'YouTube URL (no cache)' });
       response = await withTimeout(
         ai.models.generateContent({
           model: PRIMARY_MODEL,
           contents: {
-            parts: [videoPart, { text: verifyPrompt }]
+            parts: [videoPart, { text: searchPrompt }]
           },
           config: {
-            systemInstruction: `You are a precise video timestamp verifier. Your job is to verify claimed timestamps against the actual video content. Respond in JSON only.`,
+            systemInstruction: `You are a precise video timestamp retrieval specialist. Search the video for described moments and return exact times. Respond in JSON only.`,
             mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
             responseMimeType: "application/json",
           }
         }),
         API_TIMEOUT_MS,
-        'Grounding_Verify_YouTube'
+        'Grounding_Search_YouTube'
       );
     } else {
-      const cache = await ai.caches.create({
-        model: PRIMARY_MODEL,
-        config: {
-          contents: [createUserContent(videoPart)],
-          systemInstruction: `You are a precise video timestamp verifier. Your job is to verify claimed timestamps against the actual video content. Respond in JSON only.`,
-          ttl: '300s',
-        }
-      });
-
-      cacheName = cache.name!;
-      FocalPointLogger.info("Grounding_Cache_Created", { cacheName, model: PRIMARY_MODEL });
-
-      response = await withTimeout(
-        ai.models.generateContent({
-          model: PRIMARY_MODEL,
-          contents: verifyPrompt,
-          config: {
-            cachedContent: cacheName,
-            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
-            responseMimeType: "application/json",
-          }
-        }),
-        API_TIMEOUT_MS,
-        'Grounding_Verify'
-      );
+      FocalPointLogger.warn("Grounding_Skip", "No cache and not YouTube, skipping grounding");
+      return report;
     }
 
     const text = response.text || '';
     const parsed = JSON.parse(text);
-    const verified = parsed.verified || parsed;
+    const located = parsed.located || parsed;
 
     let correctedCount = 0;
+    const DRIFT_THRESHOLD_SECONDS = 10;
 
-    for (const v of verified) {
-      const item = items[v.index];
+    for (const loc of located) {
+      const item = items[loc.index];
       if (!item) continue;
 
-      if (v.changed) {
-        correctedCount++;
-        if (item.type === 'highlight') {
-          report.highlights[item.index].seconds = v.corrected_seconds;
-          report.highlights[item.index].timestamp = v.corrected_timestamp;
-          report.highlights[item.index].timecode_confidence = v.confidence;
-          if (v.evidence) report.highlights[item.index].timecode_evidence = v.evidence;
-        } else {
-          report.concerns[item.index].seconds = v.corrected_seconds;
-          report.concerns[item.index].timestamp = v.corrected_timestamp;
-          report.concerns[item.index].timecode_confidence = v.confidence;
-          if (v.evidence) report.concerns[item.index].timecode_evidence = v.evidence;
-        }
+      const foundSeconds = loc.start_seconds;
+      const delta = Math.abs(foundSeconds - item.originalSeconds);
+
+      let computedConfidence: 'high' | 'medium' | 'low';
+      if (loc.confidence === 'low') {
+        computedConfidence = 'low';
+      } else if (delta <= DRIFT_THRESHOLD_SECONDS) {
+        computedConfidence = 'high';
+      } else if (delta <= 30) {
+        computedConfidence = 'medium';
       } else {
-        if (item.type === 'highlight') {
-          report.highlights[item.index].timecode_confidence = v.confidence || item.confidence;
-        } else {
-          report.concerns[item.index].timecode_confidence = v.confidence || item.confidence;
+        computedConfidence = 'low';
+      }
+
+      const wasChanged = delta > DRIFT_THRESHOLD_SECONDS;
+
+      if (item.type === 'highlight') {
+        if (wasChanged) {
+          correctedCount++;
+          report.highlights[item.index].seconds = foundSeconds;
+          report.highlights[item.index].timestamp = loc.timestamp;
         }
+        report.highlights[item.index].timecode_confidence = computedConfidence;
+        if (loc.evidence) report.highlights[item.index].timecode_evidence = loc.evidence;
+      } else {
+        if (wasChanged) {
+          correctedCount++;
+          report.concerns[item.index].seconds = foundSeconds;
+          report.concerns[item.index].timestamp = loc.timestamp;
+        }
+        report.concerns[item.index].timecode_confidence = computedConfidence;
+        if (loc.evidence) report.concerns[item.index].timecode_evidence = loc.evidence;
       }
     }
 
@@ -521,12 +566,6 @@ Only set "changed" to true if you found a meaningful discrepancy.
   } catch (error: any) {
     FocalPointLogger.warn("Grounding_Failed", `Skipping grounding pass: ${error.message}`);
     return report;
-  } finally {
-    if (cacheName) {
-      ai.caches.delete({ name: cacheName }).catch(err => {
-        FocalPointLogger.warn("Grounding_Cache_Cleanup", `Failed to delete cache: ${err.message}`);
-      });
-    }
   }
 }
 
@@ -557,6 +596,7 @@ async function processAnalysisJob(
     fileUri?: string;
     fileMimeType?: string;
     youtubeUrl?: string;
+    cacheName?: string;
   }
 ): Promise<void> {
   try {
@@ -584,6 +624,7 @@ async function processAnalysisJob(
         fileMimeType: params.fileMimeType,
         youtubeUrl: params.youtubeUrl,
         langName: params.langName,
+        cacheName: params.cacheName,
       });
 
       await db.update(analysisJobs)
@@ -611,7 +652,7 @@ async function processAnalysisJob(
         .where(eq(analysisJobs.jobId, jobId));
     }
   } catch (error: any) {
-    FocalPointLogger.error("Analysis_Job_Error", { jobId, error: error.message });
+    FocalPointLogger.error("Analysis_Job_Error", `${jobId}: ${error.message}`);
     await db.update(analysisJobs)
       .set({ status: 'failed', lastError: error.message, completedAt: new Date() })
       .where(eq(analysisJobs.jobId, jobId));
@@ -697,19 +738,6 @@ router.post('/', analyzeLimiter, async (req, res) => {
         personaId,
         status: 'pending',
       });
-
-      processAnalysisJob(jobId, sessionId, personaId, {
-        title,
-        synopsis,
-        srtContent,
-        questions,
-        langName,
-        fileUri: hasFileUri ? fileUri : undefined,
-        fileMimeType: hasFileUri ? fileMimeType : undefined,
-        youtubeUrl: hasYoutube ? youtubeUrl : undefined
-      }).catch(err => {
-        FocalPointLogger.error("Analysis_Background_Error", { jobId, error: err.message });
-      });
     }
 
     FocalPointLogger.info("Analysis_Jobs_Created", { 
@@ -720,6 +748,51 @@ router.post('/', analyzeLimiter, async (req, res) => {
     });
 
     res.json({ jobIds, status: 'pending' });
+
+    const isUploadedFile = hasFileUri && !hasYoutube;
+    let cacheName: string | undefined;
+    let cacheUploadId: string | undefined;
+
+    if (isUploadedFile) {
+      try {
+        const ai = getAI();
+        cacheUploadId = await findUploadIdByFileUri(fileUri!);
+        if (cacheUploadId) {
+          const result = await ensureVideoCache(ai, cacheUploadId, fileUri!, fileMimeType || 'video/mp4');
+          cacheName = result ?? undefined;
+          FocalPointLogger.info("Global_Cache_Created", { cacheName, sessionId, jobCount: jobIds.length });
+        }
+      } catch (err: any) {
+        FocalPointLogger.warn("Global_Cache_Failed", `Proceeding without cache: ${err.message}`);
+      }
+    }
+
+    const jobPromises = selectedPersonaIds.map((personaId, i) =>
+      processAnalysisJob(jobIds[i], sessionId, personaId, {
+        title,
+        synopsis,
+        srtContent,
+        questions,
+        langName,
+        fileUri: hasFileUri ? fileUri : undefined,
+        fileMimeType: hasFileUri ? fileMimeType : undefined,
+        youtubeUrl: hasYoutube ? youtubeUrl : undefined,
+        cacheName,
+      }).catch(err => {
+        FocalPointLogger.error("Analysis_Background_Error", { jobId: jobIds[i], error: err.message });
+      })
+    );
+
+    Promise.allSettled(jobPromises).then(async () => {
+      if (cacheName) {
+        try {
+          await deleteVideoCache(getAI(), cacheName, cacheUploadId);
+          FocalPointLogger.info("Global_Cache_Cleaned", { cacheName, sessionId });
+        } catch (err: any) {
+          FocalPointLogger.warn("Global_Cache_Cleanup_Failed", err.message);
+        }
+      }
+    });
 
   } catch (error: any) {
     FocalPointLogger.error("API_Call", error);
