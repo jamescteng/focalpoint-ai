@@ -24,6 +24,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 | `server/services/videoCompressor.ts` | FFmpeg 720p/2fps compression |
 | `server/services/compressionDecider.ts` | Smart compression decision logic (TDD) |
 | `server/services/progressManager.ts` | Resilient DB updates with retry, throttling, milestones |
+| `server/services/cacheService.ts` | Global Gemini context cache lifecycle (create, reuse, delete) |
 | `server/personas.ts` | AI persona definitions |
 | `server/geminiService.ts` | Gemini API wrapper |
 | `server/elevenLabsService.ts` | TTS integration |
@@ -102,6 +103,7 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 - **API timeout**: 120 seconds per request via `withTimeout()` wrapper - prevents hanging connections
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts
 - **Model fallback**: Primary `gemini-3-flash-preview` → fallback `gemini-2.5-flash` on transient errors after retries exhausted
+- **Cache-expiry fallback**: `isCacheError()` detects expired/invalid cache → retries without cached content automatically
 - **Upload timeout**: 40 minutes for frontend polling
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
 - **Analysis timeout**: 15 minutes for frontend polling of analysis jobs
