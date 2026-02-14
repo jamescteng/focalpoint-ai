@@ -92,8 +92,15 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
   const [dialoguePair, setDialoguePair] = useState<{ personaIdA: string; personaIdB: string } | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   
-  const [questionInput, setQuestionInput] = useState('');
-  const [isAskingQuestion, setIsAskingQuestion] = useState(false);
+  const DEFAULT_QUESTION_KEYS = [
+    'uploadForm.defaultQuestion1',
+    'uploadForm.defaultQuestion2',
+    'uploadForm.defaultQuestion3',
+  ] as const;
+  const getDefaultQuestions = () => DEFAULT_QUESTION_KEYS.map(key => t(key));
+  
+  const [questions, setQuestions] = useState<string[]>(getDefaultQuestions());
+  const [isSubmittingQuestions, setIsSubmittingQuestions] = useState(false);
   const [questionError, setQuestionError] = useState<string | null>(null);
   
   const getPersonaDisplayName = (personaId: string): string => {
@@ -173,11 +180,19 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
     }
   };
 
-  const handleAskQuestion = async () => {
-    const trimmed = questionInput.trim();
-    if (!trimmed || !sessionId || !activeReport) return;
+  const addQuestion = () => setQuestions(prev => [...prev, '']);
+  const updateQuestion = (idx: number, val: string) => {
+    setQuestions(prev => prev.map((q, i) => i === idx ? val : q));
+  };
+  const removeQuestion = (idx: number) => {
+    setQuestions(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmitQuestions = async () => {
+    const validQuestions = questions.map(q => q.trim()).filter(q => q.length > 0);
+    if (validQuestions.length === 0 || !sessionId || !activeReport) return;
     
-    setIsAskingQuestion(true);
+    setIsSubmittingQuestions(true);
     setQuestionError(null);
     
     try {
@@ -187,7 +202,7 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
         body: JSON.stringify({
           sessionId,
           personaId: activeReport.personaId,
-          questions: [trimmed]
+          questions: validQuestions
         })
       });
       
@@ -200,20 +215,14 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
       if (data.answers && data.answers.length > 0) {
         onUpdateReportAnswers(activeReport.personaId, data.answers);
       }
-      setQuestionInput('');
+      setQuestions(getDefaultQuestions());
     } catch (err: any) {
       setQuestionError(err.message || t('questions.error'));
     } finally {
-      setIsAskingQuestion(false);
+      setIsSubmittingQuestions(false);
     }
   };
 
-  const handleQuestionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleAskQuestion();
-    }
-  };
 
   const pollDialogueStatus = useCallback(async (jobId: number) => {
     try {
@@ -812,46 +821,72 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
 
             {rightPanelTab === 'goals' && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="relative">
-                    <textarea
-                      value={questionInput}
-                      onChange={(e) => setQuestionInput(e.target.value)}
-                      onKeyDown={handleQuestionKeyDown}
-                      placeholder={t('questions.placeholder', { name: activePersonaDisplayName })}
-                      disabled={isAskingQuestion}
-                      rows={2}
-                      maxLength={500}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 pr-12 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none disabled:opacity-50"
-                    />
+                {questions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('questions.formTitle')}</p>
+                      <button
+                        type="button"
+                        onClick={addQuestion}
+                        disabled={isSubmittingQuestions || questions.length >= 10}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-30"
+                      >
+                        {t('questions.addQuestion')}
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {questions.map((q, i) => (
+                        <div key={i} className="flex gap-2 group">
+                          <input
+                            className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all text-slate-900 placeholder:text-slate-300 disabled:opacity-50"
+                            placeholder={t('questions.questionPlaceholder')}
+                            value={q}
+                            onChange={(e) => updateQuestion(i, e.target.value)}
+                            disabled={isSubmittingQuestions}
+                            maxLength={500}
+                          />
+                          {questions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeQuestion(i)}
+                              disabled={isSubmittingQuestions}
+                              className="p-2 text-slate-400 hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100 transition-all flex-shrink-0 disabled:opacity-30"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {questionError && (
+                      <div className="text-xs text-rose-500 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                        {questionError}
+                      </div>
+                    )}
+
                     <button
-                      onClick={handleAskQuestion}
-                      disabled={!questionInput.trim() || isAskingQuestion}
-                      className="absolute right-2 bottom-2 p-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      title={t('questions.send')}
+                      onClick={handleSubmitQuestions}
+                      disabled={isSubmittingQuestions || questions.every(q => q.trim().length === 0)}
+                      className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                     >
-                      {isAskingQuestion ? (
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
+                      {isSubmittingQuestions ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          {t('questions.submitting')}
+                        </>
                       ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
+                        t('questions.submitQuestions')
                       )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-400">{t('questions.hint')}</p>
-                </div>
-
-                {questionError && (
-                  <div className="text-xs text-rose-500 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                    {questionError}
-                  </div>
                 )}
 
-                {isAskingQuestion && (
+                {isSubmittingQuestions && (
                   <Card className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-6 h-6 rounded-full bg-slate-200 animate-pulse" />
@@ -860,32 +895,24 @@ export const ScreeningRoom: React.FC<ScreeningRoomProps> = ({
                         <div className="h-3 bg-slate-200 rounded animate-pulse w-1/2" />
                       </div>
                     </div>
+                    <p className="text-xs text-slate-400 mt-3">{t('questions.processingHint', { name: activePersonaDisplayName })}</p>
                   </Card>
                 )}
 
                 {activeReport.answers.length > 0 && (
                   <div className="space-y-3">
-                    {[...activeReport.answers].reverse().map((qa, i) => {
-                      const originalIndex = activeReport.answers.length - 1 - i;
-                      return (
-                        <Card key={originalIndex} className="p-4">
-                          <div className="flex items-start gap-3 mb-2">
-                            <span className="flex-shrink-0 text-[10px] font-bold text-white bg-slate-900 px-1.5 py-0.5 rounded">Q</span>
-                            <h4 className="text-sm font-semibold text-slate-900 leading-snug">{qa.question}</h4>
-                          </div>
-                          <div className="flex items-start gap-3">
-                            <span className="flex-shrink-0 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">A</span>
-                            <p className="text-sm text-slate-600 leading-relaxed">{qa.answer}</p>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {activeReport.answers.length === 0 && !isAskingQuestion && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-slate-400">{t('questions.empty', { name: activePersonaDisplayName })}</p>
+                    {activeReport.answers.map((qa, i) => (
+                      <Card key={i} className="p-4">
+                        <div className="flex items-start gap-3 mb-2">
+                          <span className="flex-shrink-0 text-[10px] font-bold text-white bg-slate-900 px-1.5 py-0.5 rounded">Q</span>
+                          <h4 className="text-sm font-semibold text-slate-900 leading-snug">{qa.question}</h4>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="flex-shrink-0 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">A</span>
+                          <p className="text-sm text-slate-600 leading-relaxed">{qa.answer}</p>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
                 )}
               </div>

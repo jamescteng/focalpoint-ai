@@ -158,11 +158,14 @@
   },
   "questions": {
     "tab": "Q&A",
-    "placeholder": "Ask {{name}} a question about your film...",
-    "hint": "Press Enter to send. The reviewer will analyze the video to answer.",
-    "send": "Send",
-    "error": "Failed to get an answer. Please try again.",
-    "empty": "No questions yet. Ask {{name}} anything about your film."
+    "formTitle": "Your Questions",
+    "addQuestion": "+ Add Question",
+    "questionPlaceholder": "What would you like to know?",
+    "submitQuestions": "Submit Questions",
+    "submitting": "Processing...",
+    "processingHint": "{{name}} is reviewing your film to answer these questions...",
+    "askMore": "Ask More Questions",
+    "error": "Failed to get answers. Please try again."
   },
   "youtubePlayer": {
     "invalidUrl": "Invalid YouTube URL",

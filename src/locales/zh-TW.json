@@ -158,11 +158,14 @@
   },
   "questions": {
     "tab": "提問",
-    "placeholder": "向 {{name}} 提出關於影片的問題...",
-    "hint": "按 Enter 送出。評論者將分析影片來回答。",
-    "send": "送出",
-    "error": "回答失敗，請再試一次。",
-    "empty": "尚無提問。向 {{name}} 詢問任何關於影片的問題。"
+    "formTitle": "你的問題",
+    "addQuestion": "+ 新增問題",
+    "questionPlaceholder": "你想了解什麼？",
+    "submitQuestions": "送出問題",
+    "submitting": "處理中...",
+    "processingHint": "{{name}} 正在分析影片以回答這些問題...",
+    "askMore": "提出更多問題",
+    "error": "回答失敗，請再試一次。"
   },
   "youtubePlayer": {
     "invalidUrl": "無效的 YouTube 網址",
