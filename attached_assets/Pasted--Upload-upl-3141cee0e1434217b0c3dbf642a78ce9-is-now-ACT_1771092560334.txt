@@ -1,0 +1,29 @@
+[Upload] upl_3141cee0e1434217b0c3dbf642a78ce9 is now ACTIVE with URI: https://generativelanguage.googleapis.com/v1beta/files/3l34e9mvhkbt
+[0] [Upload] Successfully processed upl_3141cee0e1434217b0c3dbf642a78ce9, cleaning up temp files...
+[0] [VideoCompressor] Cleaned up temp file: /tmp/focalpoint-downloads/upl_3141cee0e1434217b0c3dbf642a78ce9_ACHIPODYSSEY-小檔.mp4
+[0] [d4d68b78-bf11-4a7e-9eb7-890acaaf4978] --> PUT /api/sessions/48 | IP: 1.169.104.72, 10.84.5.36 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Session_Updated] { sessionId: 48 }
+[0] [d4d68b78-bf11-4a7e-9eb7-890acaaf4978] <-- PUT /api/sessions/48 200 (20ms)
+[0] [5d877c77-57a9-4b41-8713-90ed6fd06091] --> POST /api/analyze | IP: 1.169.104.72, 10.84.5.36 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Analysis_Jobs_Created] {
+[0]   jobIds: [ 'aj_95b386085d498f979693bfb3fc01d956' ],
+[0]   sessionId: 48,
+[0]   personas: [ 'cultural_editor' ],
+[0]   youtubeUrl: undefined
+[0] }
+[0] [5d877c77-57a9-4b41-8713-90ed6fd06091] <-- POST /api/analyze 200 (20ms)
+[0] [FocalPoint][INFO][Cache_Create_Start] {
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/3l34e9mvhkbt',
+[0]   model: 'gemini-3-flash-preview'
+[0] }
+[0] [FocalPoint][ERROR][Cache_Create_Failed] {"error":{"code":503,"message":"The service is currently unavailable.","status":"UNAVAILABLE"}} (fileUri: https://generativelanguage.googleapis.com/v1beta/files/3l34e9mvhkbt)
+[0] [FocalPoint][INFO][Global_Cache_Created] { cacheName: undefined, sessionId: 48, jobCount: 1 }
+[0] [FocalPoint][INFO][API_Call] {
+[0]   model: 'gemini-3-flash-preview',
+[0]   persona: 'cultural_editor',
+[0]   cached: false,
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/3l34e9mvhkbt',
+[0]   youtubeUrl: undefined
+[0] }
+[0] [FocalPoint][WARN][API_Retry] Gemini_gemini-3-flash-preview_cultural_editor attempt 1, retrying in 215ms: Timeout after 120000ms: gemini-3-flash-preview_cultural_editor
+[0] [FocalPoint][WARN][API_Retry] Gemini_gemini-3-flash-preview_cultural_editor attempt 2, retrying in 435ms: Timeout after 120000ms: gemini-3-flash-preview_cultural_editor
