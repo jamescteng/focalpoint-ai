@@ -442,6 +442,7 @@ export const analyzeWithPersona = async (
       fileUri: uploadResult?.fileUri,
       fileMimeType: uploadResult?.fileMimeType,
       youtubeUrl: project.youtubeUrl,
+      videoDurationSeconds: project.videoDurationSeconds,
       personaIds: [personaId],
       sessionId
     })

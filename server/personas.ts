@@ -1,3 +1,11 @@
+function formatDurationHHMMSS(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export interface PersonaConfig {
   id: string;
   name: string;
@@ -19,6 +27,7 @@ export interface PersonaConfig {
     srtContent: string;
     questions: string[];
     langName: string;
+    videoDurationSeconds?: number;
   }) => string;
 }
 
@@ -33,12 +42,17 @@ HOUSE STYLE (applies to all personas):
 - LANGUAGE: You MUST communicate your entire report in ${langName}.
 `;
 
-const OUTPUT_CONSTRAINTS_REMINDER = (langName: string) => `
+const OUTPUT_CONSTRAINTS_REMINDER = (langName: string, videoDurationSeconds?: number) => `
 HOUSE STYLE REMINDER:
 - Keep tone constructive and specific while remaining honest.
 - Do not add any text outside valid JSON.
 - Respond strictly in ${langName}.
 
+${videoDurationSeconds ? `
+VIDEO DURATION METADATA:
+Video duration: ${formatDurationHHMMSS(videoDurationSeconds)} (${videoDurationSeconds} seconds)
+All timestamps MUST be within 0 to ${videoDurationSeconds} seconds. Any timestamp outside this range is invalid.
+` : ''}
 CRITICAL INSTRUCTION for Timestamps:
 For every highlight or concern, you must provide a "seconds" field. This MUST be the absolute start time of the moment, calculated from the very beginning of the video (00:00).
 
@@ -69,6 +83,11 @@ For every highlight and concern, you MUST also provide:
    - "low" — You are estimating based on narrative position or pacing
 
 RULE: If you cannot provide concrete visual or audio evidence for a timestamp, you MUST set confidence to "low". Do NOT fabricate evidence to claim "high" confidence.
+
+TIMESTAMP GRANULARITY (STRICT):
+You may only choose timestamps in 10-second increments (e.g., 0, 10, 20, 30, ..., 120, 130, etc.).
+Round every timestamp to the nearest 10 seconds.
+This applies to both the "seconds" field and the "timestamp" string.
 `;
 
 const SUMMARY_READABILITY_GUIDELINES = `
@@ -106,7 +125,7 @@ function withHouseStyle(persona: PersonaConfig): PersonaConfig {
     },
     userPrompt: (params) => {
       const base = persona.userPrompt(params).trim();
-      const reminder = OUTPUT_CONSTRAINTS_REMINDER(params.langName).trim();
+      const reminder = OUTPUT_CONSTRAINTS_REMINDER(params.langName, params.videoDurationSeconds).trim();
       return `${base}\n\n${reminder}\n`;
     }
   };

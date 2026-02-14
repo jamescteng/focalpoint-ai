@@ -37,11 +37,20 @@ interface AnalyzeRequest {
   fileMimeType?: string;
   youtubeUrl?: string;
   personaIds: string[];
+  videoDurationSeconds?: number;
 }
 
 const PRIMARY_MODEL = "gemini-3-flash-preview";
 const FALLBACK_MODEL = "gemini-2.5-flash";
 const API_TIMEOUT_MS = 120000;
+
+function getApiTimeout(videoDurationSeconds?: number): number {
+  if (!videoDurationSeconds) return API_TIMEOUT_MS;
+  if (videoDurationSeconds > 5400) return 300000;
+  if (videoDurationSeconds > 3600) return 240000;
+  if (videoDurationSeconds > 1800) return 180000;
+  return API_TIMEOUT_MS;
+}
 
 function serializeFetchError(err: any) {
   const cause = err?.cause;
@@ -153,6 +162,7 @@ async function callGeminiWithFallback(
     fileMimeType?: string;
     youtubeUrl?: string;
     cacheName?: string;
+    videoDurationSeconds?: number;
   }
 ): Promise<{ response: any; modelUsed: string }> {
   const systemInstruction = persona.systemInstruction(params.langName);
@@ -161,7 +171,8 @@ async function callGeminiWithFallback(
     synopsis: params.synopsis,
     srtContent: params.srtContent,
     questions: params.questions,
-    langName: params.langName
+    langName: params.langName,
+    videoDurationSeconds: params.videoDurationSeconds
   });
 
   const useCached = !!params.cacheName;
@@ -223,7 +234,7 @@ async function callGeminiWithFallback(
           model: PRIMARY_MODEL,
           ...requestConfig
         }),
-        API_TIMEOUT_MS,
+        getApiTimeout(params.videoDurationSeconds),
         `${PRIMARY_MODEL}_${persona.id}`
       ),
       `Gemini_${PRIMARY_MODEL}_${persona.id}`
@@ -239,7 +250,7 @@ async function callGeminiWithFallback(
               model: PRIMARY_MODEL,
               ...uncachedConfig
             }),
-            API_TIMEOUT_MS,
+            getApiTimeout(params.videoDurationSeconds),
             `${PRIMARY_MODEL}_${persona.id}_uncached`
           ),
           `Gemini_${PRIMARY_MODEL}_${persona.id}_uncached`
@@ -261,7 +272,7 @@ async function callGeminiWithFallback(
               model: FALLBACK_MODEL,
               ...uncachedConfig
             }),
-            API_TIMEOUT_MS,
+            getApiTimeout(params.videoDurationSeconds),
             `${FALLBACK_MODEL}_${persona.id}`
           ),
           `Gemini_${FALLBACK_MODEL}_${persona.id}`
@@ -349,6 +360,7 @@ async function analyzeWithPersona(
     fileMimeType?: string;
     youtubeUrl?: string;
     cacheName?: string;
+    videoDurationSeconds?: number;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[]; modelUsed?: string }> {
   try {
@@ -360,6 +372,32 @@ async function analyzeWithPersona(
     }
 
     const report = JSON.parse(text);
+
+    for (const h of report.highlights || []) {
+      if (typeof h.seconds === 'number') {
+        h.seconds = Math.round(h.seconds / 10) * 10;
+      }
+    }
+    for (const c of report.concerns || []) {
+      if (typeof c.seconds === 'number') {
+        c.seconds = Math.round(c.seconds / 10) * 10;
+      }
+    }
+
+    if (params.videoDurationSeconds) {
+      const maxSec = params.videoDurationSeconds;
+      for (const h of report.highlights || []) {
+        if (typeof h.seconds === 'number' && h.seconds > maxSec) {
+          h.seconds = Math.min(h.seconds, maxSec);
+        }
+      }
+      for (const c of report.concerns || []) {
+        if (typeof c.seconds === 'number' && c.seconds > maxSec) {
+          c.seconds = Math.min(c.seconds, maxSec);
+        }
+      }
+    }
+
     const validationWarnings: string[] = [];
     
     if (report.highlights.length !== 5) {
@@ -418,6 +456,7 @@ async function groundTimestamps(
     youtubeUrl?: string;
     langName: string;
     cacheName?: string;
+    videoDurationSeconds?: number;
   }
 ): Promise<any> {
   const items = [
@@ -445,7 +484,7 @@ async function groundTimestamps(
 You are a timestamp retrieval specialist. Search the video for each described moment and return the exact time where it occurs. Do NOT guess — you must locate each event by its visual or audio clue.
 
 FILM: "${params.title}"
-
+${params.videoDurationSeconds ? `VIDEO DURATION: ${params.videoDurationSeconds} seconds. All timestamps MUST be within this range.\n` : ''}
 ITEMS TO LOCATE (${items.length} total):
 ${itemsList}
 
@@ -454,6 +493,7 @@ INSTRUCTIONS:
 2. Return the START second (when the moment begins) and END second (when it ends or transitions).
 3. Provide a brief evidence description of what you see/hear at that exact moment.
 4. If you cannot confidently locate the moment, set confidence to "low" and provide your best estimate.
+5. Round all timestamps to the nearest 10-second increment.
 
 Respond strictly in JSON:
 {
@@ -488,7 +528,7 @@ Respond strictly in JSON:
             responseMimeType: "application/json",
           }
         }),
-        API_TIMEOUT_MS,
+        getApiTimeout(params.videoDurationSeconds),
         'Grounding_Search_Cached'
       );
     } else if (isYoutube) {
@@ -506,7 +546,7 @@ Respond strictly in JSON:
             responseMimeType: "application/json",
           }
         }),
-        API_TIMEOUT_MS,
+        getApiTimeout(params.videoDurationSeconds),
         'Grounding_Search_YouTube'
       );
     } else {
@@ -597,6 +637,7 @@ async function processAnalysisJob(
     fileMimeType?: string;
     youtubeUrl?: string;
     cacheName?: string;
+    videoDurationSeconds?: number;
   }
 ): Promise<void> {
   try {
@@ -625,6 +666,7 @@ async function processAnalysisJob(
         youtubeUrl: params.youtubeUrl,
         langName: params.langName,
         cacheName: params.cacheName,
+        videoDurationSeconds: params.videoDurationSeconds,
       });
 
       await db.update(analysisJobs)
@@ -661,7 +703,7 @@ async function processAnalysisJob(
 
 router.post('/', analyzeLimiter, async (req, res) => {
   try {
-    const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType, youtubeUrl, personaIds, sessionId } = req.body as AnalyzeRequestExtended;
+    const { title, synopsis, srtContent, questions, language, fileUri, fileMimeType, youtubeUrl, personaIds, sessionId, videoDurationSeconds } = req.body as AnalyzeRequestExtended;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: "Title is required." });
@@ -778,6 +820,7 @@ router.post('/', analyzeLimiter, async (req, res) => {
         fileMimeType: hasFileUri ? fileMimeType : undefined,
         youtubeUrl: hasYoutube ? youtubeUrl : undefined,
         cacheName,
+        videoDurationSeconds,
       }).catch(err => {
         FocalPointLogger.error("Analysis_Background_Error", { jobId: jobIds[i], error: err.message });
       })

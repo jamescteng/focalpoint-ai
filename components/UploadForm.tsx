@@ -39,6 +39,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
   const [title, setTitle] = useState('');
   const [synopsis, setSynopsis] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState<number | undefined>(undefined);
   const [videoSourceType, setVideoSourceType] = useState<VideoSourceType>('upload');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeError, setYoutubeError] = useState('');
@@ -134,6 +135,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
         synopsis,
         youtubeUrl,
         youtubeEmbeddable: youtubeValidation.embeddable,
+        videoDurationSeconds,
         questions: [],
         language,
         selectedPersonaIds: [selectedPersonaId]
@@ -150,6 +152,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
           fileSize: videoFile!.size,
           lastModified: videoFile!.lastModified,
         },
+        videoDurationSeconds,
         questions: [],
         language,
         selectedPersonaIds: [selectedPersonaId]
@@ -251,7 +254,21 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onStart, isSubmitting = 
                   accept="video/*"
                   className="hidden"
                   id="video-upload"
-                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setVideoFile(file);
+                    if (file) {
+                      const tempVideo = document.createElement('video');
+                      tempVideo.preload = 'metadata';
+                      tempVideo.onloadedmetadata = () => {
+                        setVideoDurationSeconds(Math.round(tempVideo.duration));
+                        URL.revokeObjectURL(tempVideo.src);
+                      };
+                      tempVideo.src = URL.createObjectURL(file);
+                    } else {
+                      setVideoDurationSeconds(undefined);
+                    }
+                  }}
                 />
                 <label
                   htmlFor="video-upload"

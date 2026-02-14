@@ -7,6 +7,18 @@ import { FocalPointLogger } from '../utils/logger.js';
 const CACHE_TTL_SECONDS = 3600;
 const CACHE_SAFETY_MARGIN_MS = 120_000;
 
+function isCacheTransientError(error: any): boolean {
+  const msg = (error?.message || '').toLowerCase();
+  const status = error?.status || error?.httpStatus || error?.statusCode;
+  const code = error?.cause?.code;
+  return (
+    status === 429 || status === 500 || status === 502 || status === 503 || status === 504 ||
+    code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'EAI_AGAIN' ||
+    msg.includes('fetch failed') || msg.includes('503') || msg.includes('overloaded') ||
+    msg.includes('unavailable') || msg.includes('internal')
+  );
+}
+
 export async function ensureVideoCache(
   ai: GoogleGenAI,
   uploadId: string,
@@ -29,48 +41,66 @@ export async function ensureVideoCache(
     FocalPointLogger.info("Cache_Expired", { uploadId, cacheName: upload.cacheName });
   }
 
-  try {
-    FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model });
+  const MAX_CACHE_ATTEMPTS = 3;
 
-    const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4');
+  for (let attempt = 1; attempt <= MAX_CACHE_ATTEMPTS; attempt++) {
+    try {
+      FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model, attempt });
 
-    const cache = await ai.caches.create({
-      model,
-      config: {
-        contents: [createUserContent(videoPart)],
-        systemInstruction: `You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed.`,
-        ttl: `${CACHE_TTL_SECONDS}s`,
+      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4');
+
+      const cache = await ai.caches.create({
+        model,
+        config: {
+          contents: [createUserContent(videoPart)],
+          systemInstruction: `You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed.`,
+          ttl: `${CACHE_TTL_SECONDS}s`,
+        }
+      });
+
+      const cacheName = cache.name!;
+      const expiresAt = new Date(Date.now() + CACHE_TTL_SECONDS * 1000);
+
+      FocalPointLogger.info("Cache_Create_Success", { cacheName, model, ttl: CACHE_TTL_SECONDS, attempt });
+
+      await db.update(uploads)
+        .set({
+          cacheName,
+          cacheModel: model,
+          cacheStatus: 'ACTIVE',
+          cacheExpiresAt: expiresAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(uploads.uploadId, uploadId));
+
+      return cacheName;
+    } catch (error: any) {
+      const isLastAttempt = attempt === MAX_CACHE_ATTEMPTS;
+      const isTransient = isCacheTransientError(error);
+
+      if (isLastAttempt || !isTransient) {
+        FocalPointLogger.error("Cache_Create_Failed", `${error.message} (attempt ${attempt}/${MAX_CACHE_ATTEMPTS}, fileUri: ${fileUri.substring(0, 80)})`);
+
+        await db.update(uploads)
+          .set({
+            cacheStatus: 'FAILED',
+            updatedAt: new Date(),
+          })
+          .where(eq(uploads.uploadId, uploadId)).catch(() => {});
+
+        return null;
       }
-    });
 
-    const cacheName = cache.name!;
-    const expiresAt = new Date(Date.now() + CACHE_TTL_SECONDS * 1000);
+      const base = Math.min(10000, 1000 * Math.pow(2, attempt - 1));
+      const jitter = base * 0.2 * (Math.random() * 2 - 1);
+      const delay = Math.round(base + jitter);
 
-    FocalPointLogger.info("Cache_Create_Success", { cacheName, model, ttl: CACHE_TTL_SECONDS });
-
-    await db.update(uploads)
-      .set({
-        cacheName,
-        cacheModel: model,
-        cacheStatus: 'ACTIVE',
-        cacheExpiresAt: expiresAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(uploads.uploadId, uploadId));
-
-    return cacheName;
-  } catch (error: any) {
-    FocalPointLogger.error("Cache_Create_Failed", `${error.message} (fileUri: ${fileUri.substring(0, 80)})`);
-
-    await db.update(uploads)
-      .set({
-        cacheStatus: 'FAILED',
-        updatedAt: new Date(),
-      })
-      .where(eq(uploads.uploadId, uploadId)).catch(() => {});
-
-    return null;
+      FocalPointLogger.warn("Cache_Create_Retry", `Attempt ${attempt}/${MAX_CACHE_ATTEMPTS} failed: ${error.message}. Retrying in ${delay}ms`);
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
+
+  return null;
 }
 
 export async function deleteVideoCache(ai: GoogleGenAI, cacheName: string, uploadId?: string): Promise<void> {
