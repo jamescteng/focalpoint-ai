@@ -78,6 +78,7 @@ Uploaded videos get a single Gemini context cache shared across all persona anal
 - `cacheName` passed to all `processAnalysisJob` calls
 - Cache persists after analysis for follow-up questions (not auto-deleted)
 - Cache TTL: 3600s (60 min), safety margin: 120s for expiry checks
+- Cache creation has 3-attempt retry with exponential backoff (1s/2s/4s + jitter) for transient errors
 - DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
 - YouTube limitation: No cache (context caching doesn't support YouTube URLs)
 - `cacheService.ts`: `ensureVideoCache()`, `deleteVideoCache()`, `findUploadIdByFileUri()`
@@ -99,6 +100,17 @@ After analysis completes, users can ask follow-up questions to any persona via t
 - Questions removed from UploadForm; now asked post-report per persona
 - YouTube falls back to direct video call (no cache support)
 - Answers persist: visible when session is reloaded from history
+
+## Timestamp Accuracy
+Three-layer system to minimize timestamp hallucination:
+
+**Layer 1 (Prompt Constraints)**: Video duration metadata injected into every prompt (`Video duration: HH:MM:SS (X seconds). All timestamps MUST be within this range.`). 10-second granularity enforced (`You may only choose timestamps in 10-second increments`).
+
+**Layer 2 (Post-Processing)**: Server snaps all `seconds` values to nearest 10s (`Math.round(seconds/10)*10`) and clamps to video duration.
+
+**Layer 3 (Dynamic Timeout)**: API timeout scales with video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min).
+
+**Video Duration Flow**: UploadForm (HTML5 video metadata) → Project.videoDurationSeconds → geminiService → /api/analyze → persona prompts + grounding prompts
 
 ## Timestamp Grounding (Search-not-Verify)
 Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid confirmation bias:
