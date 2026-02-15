@@ -339,6 +339,7 @@ async function analyzeWithPersona(
     videoDurationSeconds?: number;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[]; modelUsed?: string }> {
+  const analyzeStartMs = Date.now();
   try {
     const { response, modelUsed } = await callGeminiWithFallback(ai, persona, params);
 
@@ -382,6 +383,29 @@ async function analyzeWithPersona(
     if (report.concerns.length !== 5) {
       validationWarnings.push(`Expected 5 concerns, got ${report.concerns.length}`);
     }
+
+    if (params.videoDurationSeconds) {
+      const dur = params.videoDurationSeconds;
+      const t1 = dur / 3;
+      const t2 = dur * 2 / 3;
+      const inThird = (s: number) => s < t1 ? 1 : s < t2 ? 2 : 3;
+      const hDist = [0, 0, 0];
+      const cDist = [0, 0, 0];
+      for (const h of report.highlights || []) {
+        if (typeof h.seconds === 'number') hDist[inThird(h.seconds) - 1]++;
+      }
+      for (const c of report.concerns || []) {
+        if (typeof c.seconds === 'number') cDist[inThird(c.seconds) - 1]++;
+      }
+      const hAll = report.highlights?.map((h: any) => h.seconds) || [];
+      const cAll = report.concerns?.map((c: any) => c.seconds) || [];
+      if (hDist[0] === 0 || hDist[1] === 0 || hDist[2] === 0) {
+        validationWarnings.push(`Highlight distribution violation: [${hDist.join(',')}] across thirds (seconds: ${hAll.join(',')})`);
+      }
+      if (cDist[0] === 0 || cDist[1] === 0 || cDist[2] === 0) {
+        validationWarnings.push(`Concern distribution violation: [${cDist.join(',')}] across thirds (seconds: ${cAll.join(',')})`);
+      }
+    }
     
     let genuineHighSeverityCount = 0;
     for (const c of report.concerns || []) {
@@ -398,7 +422,7 @@ async function analyzeWithPersona(
       FocalPointLogger.warn("Validation", `[${persona.id}] ${validationWarnings.join("; ")}`);
     }
 
-    FocalPointLogger.info("API_Success", { persona: persona.id, modelUsed });
+    FocalPointLogger.info("API_Success", { persona: persona.id, modelUsed, durationMs: Date.now() - analyzeStartMs });
 
     return {
       personaId: persona.id,
@@ -413,7 +437,7 @@ async function analyzeWithPersona(
       modelUsed
     };
   } catch (error: any) {
-    FocalPointLogger.error("API_Call", `[${persona.id}] ${error.message}`);
+    FocalPointLogger.error("API_Call", `[${persona.id}] ${error.message} (durationMs: ${Date.now() - analyzeStartMs})`);
     return {
       personaId: persona.id,
       status: 'error' as const,
@@ -653,6 +677,7 @@ async function processAnalysisJob(
     const result = await analyzeWithPersona(ai, persona, params);
 
     if (result.status === 'success' && result.report) {
+      const groundingStartMs = Date.now();
       FocalPointLogger.info("Grounding_Start", { jobId, persona: personaId });
       result.report = await groundTimestamps(ai, result.report, {
         title: params.title,
@@ -663,6 +688,7 @@ async function processAnalysisJob(
         cacheName: params.cacheName,
         videoDurationSeconds: params.videoDurationSeconds,
       });
+      FocalPointLogger.info("Grounding_Duration", { jobId, persona: personaId, durationMs: Date.now() - groundingStartMs });
 
       await db.update(analysisJobs)
         .set({ 

@@ -52,6 +52,12 @@ ${videoDurationSeconds ? `
 VIDEO DURATION METADATA:
 Video duration: ${formatDurationHHMMSS(videoDurationSeconds)} (${videoDurationSeconds} seconds)
 All timestamps MUST be within 0 to ${videoDurationSeconds} seconds. Any timestamp outside this range is invalid.
+
+DISTRIBUTION BOUNDARIES (based on video duration):
+- First third: 0s to ${Math.floor(videoDurationSeconds / 3)}s (${formatDurationHHMMSS(0)} – ${formatDurationHHMMSS(Math.floor(videoDurationSeconds / 3))})
+- Middle third: ${Math.floor(videoDurationSeconds / 3)}s to ${Math.floor(videoDurationSeconds * 2 / 3)}s (${formatDurationHHMMSS(Math.floor(videoDurationSeconds / 3))} – ${formatDurationHHMMSS(Math.floor(videoDurationSeconds * 2 / 3))})
+- Final third: ${Math.floor(videoDurationSeconds * 2 / 3)}s to ${videoDurationSeconds}s (${formatDurationHHMMSS(Math.floor(videoDurationSeconds * 2 / 3))} – ${formatDurationHHMMSS(videoDurationSeconds)})
+You MUST select at least 1 highlight and 1 concern from EACH of these three ranges.
 ` : ''}
 CRITICAL INSTRUCTION for Timestamps:
 For every highlight or concern, you must provide a "seconds" field. This MUST be the absolute start time of the moment, calculated from the very beginning of the video (00:00).
@@ -94,8 +100,11 @@ Your 5 highlights and 5 concerns MUST be spread across the ENTIRE video, not clu
 - At least 1 highlight and 1 concern MUST come from the first third of the video.
 - At least 1 highlight and 1 concern MUST come from the middle third of the video.
 - At least 1 highlight and 1 concern MUST come from the final third of the video.
-Watch the COMPLETE video before selecting moments. Do NOT stop analyzing after the first act.
+- No more than 2 highlights may come from the same third.
+- No more than 2 concerns may come from the same third.
+Watch the COMPLETE video from start to finish before selecting any moments. Do NOT stop analyzing after the first act.
 If you find yourself selecting multiple timestamps close together, deliberately search other parts of the video for additional moments.
+IMPORTANT: Many reviewers make the mistake of clustering all observations in the beginning. You MUST resist this. Actively seek moments from the second half and final act of the video.
 `;
 
 const SUMMARY_READABILITY_GUIDELINES = `

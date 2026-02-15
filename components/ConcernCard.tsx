@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Badge, Pill, SeverityPill } from './ui';
-import { getCategoryIcon, formatCategory } from './ui/reportHelpers';
+import { getCategoryIcon, formatCategory, formatTimestamp } from './ui/reportHelpers';
 
 interface Concern {
   timestamp: string;
@@ -27,8 +27,8 @@ export const ConcernCard: React.FC<ConcernCardProps> = ({ concern, onSeek }) => 
       className="p-5 text-left flex flex-col"
     >
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Badge variant="dark" className={concern.timecode_confidence === 'low' ? 'opacity-50' : undefined}>
-          {concern.timestamp}
+        <Badge variant={concern.timecode_confidence === 'low' ? 'light' : 'dark'}>
+          {typeof concern.seconds === 'number' ? formatTimestamp(concern.seconds) : concern.timestamp}
           {concern.timecode_confidence === 'low' && <span title="Approximate timestamp"> ~</span>}
         </Badge>
         <Pill icon={getCategoryIcon(concern.category)} variant="default">

@@ -44,7 +44,12 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 export const formatTimestamp = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+  const totalSec = Math.max(0, Math.floor(seconds));
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
   return `${mins}:${String(secs).padStart(2, '0')}`;
 };

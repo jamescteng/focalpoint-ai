@@ -106,9 +106,9 @@ After analysis completes, users can ask follow-up questions to any persona via t
 ## Timestamp Accuracy
 Three-layer system to minimize timestamp hallucination:
 
-**Layer 1 (Prompt Constraints)**: Video duration metadata injected into every prompt (`Video duration: HH:MM:SS (X seconds). All timestamps MUST be within this range.`). 10-second granularity enforced (`You may only choose timestamps in 10-second increments`).
+**Layer 1 (Prompt Constraints)**: Video duration metadata injected into every prompt (`Video duration: HH:MM:SS (X seconds). All timestamps MUST be within this range.`). 10-second granularity enforced (`You may only choose timestamps in 10-second increments`). Concrete distribution boundaries computed and injected (e.g., "First third: 0s to 400s"). Max 2 highlights/concerns per third enforced in prompt.
 
-**Layer 2 (Post-Processing)**: Server snaps all `seconds` values to nearest 10s (`Math.round(seconds/10)*10`) and clamps to video duration.
+**Layer 2 (Post-Processing)**: Server snaps all `seconds` values to nearest 10s (`Math.round(seconds/10)*10`) and clamps to video duration. Distribution validation logs violations (highlights/concerns clustered in one third).
 
 **Layer 3 (Dynamic Timeout)**: API timeout scales with video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min).
 

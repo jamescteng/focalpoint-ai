@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Badge, Pill } from './ui';
 import { ExpandableContent } from './ExpandableContent';
-import { getCategoryIcon, formatCategory } from './ui/reportHelpers';
+import { getCategoryIcon, formatCategory, formatTimestamp } from './ui/reportHelpers';
 
 interface Highlight {
   timestamp: string;
@@ -26,8 +26,8 @@ export const HighlightCard: React.FC<HighlightCardProps> = ({ highlight, onSeek 
       className="p-5 text-left flex flex-col"
     >
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Badge variant="dark" className={highlight.timecode_confidence === 'low' ? 'opacity-50' : undefined}>
-          {highlight.timestamp}
+        <Badge variant={highlight.timecode_confidence === 'low' ? 'light' : 'dark'}>
+          {typeof highlight.seconds === 'number' ? formatTimestamp(highlight.seconds) : highlight.timestamp}
           {highlight.timecode_confidence === 'low' && <span title="Approximate timestamp"> ~</span>}
         </Badge>
         <Pill icon={getCategoryIcon(highlight.category)} variant="highlight">

@@ -138,6 +138,7 @@ INSTRUCTIONS:
     };
 
     let response;
+    const questionsStartMs = Date.now();
 
     if (cacheName) {
       FocalPointLogger.info("Questions_Cached", { cacheName, personaId, model: PRIMARY_MODEL });
@@ -232,7 +233,8 @@ INSTRUCTIONS:
       sessionId,
       personaId,
       answerCount: answers.length,
-      cached: !!cacheName
+      cached: !!cacheName,
+      durationMs: Date.now() - questionsStartMs
     });
 
     res.json({ answers, personaId, sessionId });
