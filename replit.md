@@ -6,7 +6,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
 - **Backend**: Express (port 3001), proxied via Vite `/api`
-- **AI**: Google Gemini (`gemini-2.5-flash`, `MEDIA_RESOLUTION_LOW` for ~171min max)
+- **AI**: Google Gemini (`gemini-2.5-flash` analysis, `gemini-1.5-flash` cache, `MEDIA_RESOLUTION_LOW`)
 - **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage
@@ -130,7 +130,7 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 - Logs: `Grounding_Cached`, `Grounding_Direct`, `Grounding_Complete`, `Grounding_Failed`
 
 ## API Resilience
-- **Single model**: `gemini-2.5-flash` for all analysis, grounding, cache, and questions (no model fallback — simpler, avoids cache/model mismatch)
+- **Multi-model**: `gemini-2.5-flash` for uncached analysis, `gemini-1.5-flash` for cached analysis/grounding/questions (must match cache creation model), `gemini-2.0-flash` for voice/dialogue
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
 - **API timeout**: Dynamic based on video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min)
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts
@@ -139,7 +139,13 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 - **Upload timeout**: 40 minutes for frontend polling
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
 - **Analysis timeout**: 15 minutes for frontend polling of analysis jobs
-- **Auxiliary models**: `gemini-2.0-flash` for voice scripts and podcast dialogue (separate, lighter tasks)
+
+## Grounding Fallback Strategy
+When the context cache is unavailable (creation failed or video too large), grounding uses one of these paths:
+1. **Cache available** → Uses `gemini-1.5-flash` with cached content (cheapest, fastest)
+2. **No cache + uploaded file** → Uses `gemini-2.5-flash` with fileUri directly (re-reads the uploaded file)
+3. **No cache + YouTube** → Uses `gemini-2.5-flash` with YouTube URL directly
+4. **No cache + no fileUri + no YouTube** → Skips grounding (Pass 1 results used as-is)
 
 ## Observability (Blank Screen Diagnostics)
 Layered beacon system to diagnose loading failures:

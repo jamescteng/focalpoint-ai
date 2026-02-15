@@ -88,6 +88,14 @@ TIMESTAMP GRANULARITY (STRICT):
 You may only choose timestamps in 10-second increments (e.g., 0, 10, 20, 30, ..., 120, 130, etc.).
 Round every timestamp to the nearest 10 seconds.
 This applies to both the "seconds" field and the "timestamp" string.
+
+TIMESTAMP DISTRIBUTION (STRICT):
+Your 5 highlights and 5 concerns MUST be spread across the ENTIRE video, not clustered in the first portion.
+- At least 1 highlight and 1 concern MUST come from the first third of the video.
+- At least 1 highlight and 1 concern MUST come from the middle third of the video.
+- At least 1 highlight and 1 concern MUST come from the final third of the video.
+Watch the COMPLETE video before selecting moments. Do NOT stop analyzing after the first act.
+If you find yourself selecting multiple timestamps close together, deliberately search other parts of the video for additional moments.
 `;
 
 const SUMMARY_READABILITY_GUIDELINES = `

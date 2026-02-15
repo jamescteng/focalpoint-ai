@@ -41,6 +41,7 @@ interface AnalyzeRequest {
 }
 
 const PRIMARY_MODEL = "gemini-2.5-flash";
+const CACHE_MODEL = "gemini-1.5-flash";
 const API_TIMEOUT_MS = 120000;
 
 function getApiTimeout(videoDurationSeconds?: number): number {
@@ -172,6 +173,7 @@ async function callGeminiWithFallback(
   });
 
   const useCached = !!params.cacheName;
+  const activeModel = useCached ? CACHE_MODEL : PRIMARY_MODEL;
 
   const videoPart = params.youtubeUrl
     ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
@@ -201,7 +203,7 @@ async function callGeminiWithFallback(
   };
 
   FocalPointLogger.info("API_Call", { 
-    model: PRIMARY_MODEL, 
+    model: activeModel, 
     persona: persona.id, 
     cached: useCached,
     fileUri: params.fileUri,
@@ -227,18 +229,18 @@ async function callGeminiWithFallback(
     const response = await withRetries(
       () => withTimeout(
         ai.models.generateContent({
-          model: PRIMARY_MODEL,
+          model: activeModel,
           ...requestConfig
         }),
         getApiTimeout(params.videoDurationSeconds),
-        `${PRIMARY_MODEL}_${persona.id}`
+        `${activeModel}_${persona.id}`
       ),
-      `Gemini_${PRIMARY_MODEL}_${persona.id}`
+      `Gemini_${activeModel}_${persona.id}`
     );
-    return { response, modelUsed: PRIMARY_MODEL };
+    return { response, modelUsed: activeModel };
   } catch (primaryError: any) {
     if (useCached && isCacheError(primaryError)) {
-      FocalPointLogger.warn("Cache_Fallback", `Cache expired/invalid for ${persona.id}, retrying without cache`);
+      FocalPointLogger.warn("Cache_Fallback", `Cache expired/invalid for ${persona.id}, retrying without cache using ${PRIMARY_MODEL}`);
       try {
         const response = await withRetries(
           () => withTimeout(
@@ -421,6 +423,7 @@ async function analyzeWithPersona(
   }
 }
 
+
 async function groundTimestamps(
   ai: GoogleGenAI,
   report: any,
@@ -492,10 +495,10 @@ Respond strictly in JSON:
     let response;
 
     if (useSharedCache) {
-      FocalPointLogger.info("Grounding_Cached", { cacheName: params.cacheName });
+      FocalPointLogger.info("Grounding_Cached", { cacheName: params.cacheName, model: CACHE_MODEL });
       response = await withTimeout(
         ai.models.generateContent({
-          model: PRIMARY_MODEL,
+          model: CACHE_MODEL,
           contents: searchPrompt,
           config: {
             cachedContent: params.cacheName!,
@@ -524,8 +527,26 @@ Respond strictly in JSON:
         getApiTimeout(params.videoDurationSeconds),
         'Grounding_Search_YouTube'
       );
+    } else if (params.fileUri) {
+      const videoPart = createPartFromUri(params.fileUri, params.fileMimeType || 'video/mp4');
+      FocalPointLogger.info("Grounding_Direct", { reason: 'Uploaded file (no cache)', fileUri: params.fileUri.substring(0, 80) });
+      response = await withTimeout(
+        ai.models.generateContent({
+          model: PRIMARY_MODEL,
+          contents: {
+            parts: [videoPart, { text: searchPrompt }]
+          },
+          config: {
+            systemInstruction: `You are a precise video timestamp retrieval specialist. Search the video for described moments and return exact times. Respond in JSON only.`,
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+            responseMimeType: "application/json",
+          }
+        }),
+        getApiTimeout(params.videoDurationSeconds),
+        'Grounding_Search_FileUri'
+      );
     } else {
-      FocalPointLogger.warn("Grounding_Skip", "No cache and not YouTube, skipping grounding");
+      FocalPointLogger.warn("Grounding_Skip", "No cache, no YouTube, and no fileUri — skipping grounding");
       return report;
     }
 
