@@ -78,7 +78,8 @@ Uploaded videos get a single Gemini context cache shared across all persona anal
 - `cacheName` passed to all `processAnalysisJob` calls
 - Cache persists after analysis for follow-up questions (not auto-deleted)
 - Cache TTL: 3600s (60 min), safety margin: 120s for expiry checks
-- Cache creation uses `MEDIA_RESOLUTION_LOW` via config-level `mediaResolution` on `caches.create` (reduces ~1.8M tokens to ~450K for 120min films)
+- Cache creation uses direct REST API call (bypasses SDK serialization) with `mediaResolution: MEDIA_RESOLUTION_LOW` (target: ~1.8M → ~450K tokens for 120min films)
+- Cache creation tries `v1alpha` first, falls back to `v1beta` — with detailed logging of request/response for diagnostics
 - Cache creation has 3-attempt retry with exponential backoff (2s/5s/10s + jitter) for transient errors
 - DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
 - YouTube limitation: No cache (context caching doesn't support YouTube URLs)
