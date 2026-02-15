@@ -15,7 +15,7 @@ import { db } from '../db.js';
 import { analysisJobs } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
-import { ensureVideoCache, findUploadIdByFileUri } from '../services/cacheService.js';
+import { ensureVideoCache, findUploadIdByFileUri, type CacheResult } from '../services/cacheService.js';
 
 const router = Router();
 
@@ -159,6 +159,7 @@ async function callGeminiWithFallback(
     youtubeUrl?: string;
     cacheName?: string;
     videoDurationSeconds?: number;
+    noRetryOnTimeout?: boolean;
   }
 ): Promise<{ response: any; modelUsed: string }> {
   const systemInstruction = persona.systemInstruction(params.langName);
@@ -224,6 +225,11 @@ async function callGeminiWithFallback(
     }
   };
 
+  const maxAttempts = params.noRetryOnTimeout ? 1 : 4;
+  if (params.noRetryOnTimeout) {
+    FocalPointLogger.info("API_No_Retry", `Video too large for cache, disabling retries for ${persona.id}`);
+  }
+
   try {
     const response = await withRetries(
       () => withTimeout(
@@ -234,7 +240,8 @@ async function callGeminiWithFallback(
         getApiTimeout(params.videoDurationSeconds),
         `${activeModel}_${persona.id}`
       ),
-      `Gemini_${activeModel}_${persona.id}`
+      `Gemini_${activeModel}_${persona.id}`,
+      maxAttempts
     );
     return { response, modelUsed: activeModel };
   } catch (primaryError: any) {
@@ -250,7 +257,8 @@ async function callGeminiWithFallback(
             getApiTimeout(params.videoDurationSeconds),
             `${PRIMARY_MODEL}_${persona.id}_uncached`
           ),
-          `Gemini_${PRIMARY_MODEL}_${persona.id}_uncached`
+          `Gemini_${PRIMARY_MODEL}_${persona.id}_uncached`,
+          maxAttempts
         );
         return { response, modelUsed: PRIMARY_MODEL };
       } catch (uncachedError: any) {
@@ -337,6 +345,7 @@ async function analyzeWithPersona(
     youtubeUrl?: string;
     cacheName?: string;
     videoDurationSeconds?: number;
+    noRetryOnTimeout?: boolean;
   }
 ): Promise<{ personaId: string; status: 'success' | 'error'; report?: any; error?: string; validationWarnings?: string[]; modelUsed?: string }> {
   const analyzeStartMs = Date.now();
@@ -657,6 +666,7 @@ async function processAnalysisJob(
     youtubeUrl?: string;
     cacheName?: string;
     videoDurationSeconds?: number;
+    noRetryOnTimeout?: boolean;
   }
 ): Promise<void> {
   try {
@@ -816,14 +826,17 @@ router.post('/', analyzeLimiter, async (req, res) => {
     let cacheName: string | undefined;
     let cacheUploadId: string | undefined;
 
+    let cacheSkippedDueToSize = false;
+
     if (isUploadedFile) {
       try {
         const ai = getAI();
         cacheUploadId = await findUploadIdByFileUri(fileUri!);
         if (cacheUploadId) {
-          const result = await ensureVideoCache(ai, cacheUploadId, fileUri!, fileMimeType || 'video/mp4');
-          cacheName = result ?? undefined;
-          FocalPointLogger.info("Global_Cache_Created", { cacheName, sessionId, jobCount: jobIds.length });
+          const cacheResult = await ensureVideoCache(ai, cacheUploadId, fileUri!, fileMimeType || 'video/mp4');
+          cacheName = cacheResult.cacheName ?? undefined;
+          cacheSkippedDueToSize = cacheResult.skippedDueToSize;
+          FocalPointLogger.info("Global_Cache_Created", { cacheName, sessionId, jobCount: jobIds.length, skippedDueToSize: cacheSkippedDueToSize });
         }
       } catch (err: any) {
         FocalPointLogger.warn("Global_Cache_Failed", `Proceeding without cache: ${err.message}`);
@@ -842,6 +855,7 @@ router.post('/', analyzeLimiter, async (req, res) => {
         youtubeUrl: hasYoutube ? youtubeUrl : undefined,
         cacheName,
         videoDurationSeconds,
+        noRetryOnTimeout: cacheSkippedDueToSize,
       }).catch(err => {
         FocalPointLogger.error("Analysis_Background_Error", { jobId: jobIds[i], error: err.message });
       })

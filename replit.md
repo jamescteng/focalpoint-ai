@@ -135,10 +135,11 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 - **Single model**: `gemini-2.5-flash` for all analysis, grounding, cache, and questions (1M token context, `MEDIA_RESOLUTION_LOW` on generateContent calls). `gemini-2.0-flash` for voice/dialogue only.
 - **API version**: `v1beta` (default) for all services.
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
+- **No-retry for oversized videos**: When cache is skipped due to video exceeding 1M token limit, `noRetryOnTimeout=true` disables retries (single attempt only) to avoid 20+ min wasted on repeated timeouts
 - **API timeout**: Dynamic based on video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min)
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts
 - **Cache-expiry fallback**: `isCacheError()` detects expired/invalid cache → retries without cached content automatically
-- **Cache creation retry**: 3 attempts with backoff (2s/5s/10s + jitter) for transient errors
+- **Cache creation**: "Too large" errors (400 INVALID_ARGUMENT) skip immediately with `Cache_Skipped_Too_Large` log — no retries. Only transient errors (429/5xx/network) get 3 attempts with backoff (2s/5s/10s + jitter)
 - **Upload timeout**: 40 minutes for frontend polling
 - **Gemini processing timeout**: 22.5 minutes (90 attempts × 15s) for file to become ACTIVE
 - **Analysis timeout**: 15 minutes for frontend polling of analysis jobs

@@ -16,7 +16,13 @@ function getAI(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
+function isCacheTooLargeError(error: any): boolean {
+  const msg = (error?.message || '').toLowerCase();
+  return msg.includes('too large') || msg.includes('max_total_token_count');
+}
+
 function isCacheTransientError(error: any): boolean {
+  if (isCacheTooLargeError(error)) return false;
   const msg = (error?.message || '').toLowerCase();
   const status = error?.status || error?.httpStatus || error?.statusCode;
   const code = error?.cause?.code;
@@ -28,13 +34,18 @@ function isCacheTransientError(error: any): boolean {
   );
 }
 
+export interface CacheResult {
+  cacheName: string | null;
+  skippedDueToSize: boolean;
+}
+
 export async function ensureVideoCache(
   _ai: GoogleGenAI,
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
   model: string = 'gemini-2.5-flash'
-): Promise<string | null> {
+): Promise<CacheResult> {
   const [upload] = await db.select()
     .from(uploads)
     .where(eq(uploads.uploadId, uploadId))
@@ -45,7 +56,7 @@ export async function ensureVideoCache(
     const expiresAt = new Date(upload.cacheExpiresAt);
     if (expiresAt.getTime() - now.getTime() > CACHE_SAFETY_MARGIN_MS) {
       FocalPointLogger.info("Cache_Hit", { uploadId, cacheName: upload.cacheName });
-      return upload.cacheName;
+      return { cacheName: upload.cacheName, skippedDueToSize: false };
     }
     FocalPointLogger.info("Cache_Expired", { uploadId, cacheName: upload.cacheName });
   }
@@ -95,8 +106,16 @@ export async function ensureVideoCache(
         })
         .where(eq(uploads.uploadId, uploadId));
 
-      return cacheName;
+      return { cacheName, skippedDueToSize: false };
     } catch (error: any) {
+      if (isCacheTooLargeError(error)) {
+        FocalPointLogger.warn("Cache_Skipped_Too_Large", `Video exceeds token limit, skipping cache entirely (fileUri: ${fileUri.substring(0, 80)})`);
+        await db.update(uploads)
+          .set({ cacheStatus: 'TOO_LARGE', updatedAt: new Date() })
+          .where(eq(uploads.uploadId, uploadId)).catch(() => {});
+        return { cacheName: null, skippedDueToSize: true };
+      }
+
       const isLastAttempt = attempt === MAX_CACHE_ATTEMPTS;
       const isTransient = isCacheTransientError(error);
 
@@ -110,7 +129,7 @@ export async function ensureVideoCache(
           })
           .where(eq(uploads.uploadId, uploadId)).catch(() => {});
 
-        return null;
+        return { cacheName: null, skippedDueToSize: false };
       }
 
       const BACKOFF_DELAYS = [2000, 5000, 10000];
@@ -123,7 +142,7 @@ export async function ensureVideoCache(
     }
   }
 
-  return null;
+  return { cacheName: null, skippedDueToSize: false };
 }
 
 export async function deleteVideoCache(ai: GoogleGenAI, cacheName: string, uploadId?: string): Promise<void> {

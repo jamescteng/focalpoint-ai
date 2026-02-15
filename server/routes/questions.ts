@@ -83,12 +83,13 @@ router.post('/', analyzeLimiter, async (req, res) => {
 
       if (upload) {
         const ai = getAI();
-        cacheName = await ensureVideoCache(
+        const cacheResult = await ensureVideoCache(
           ai,
           upload.uploadId,
           session.fileUri,
           session.fileMimeType || 'video/mp4'
         );
+        cacheName = cacheResult.cacheName;
       }
     }
 
