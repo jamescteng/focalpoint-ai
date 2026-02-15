@@ -9,7 +9,7 @@ import { eq, and } from 'drizzle-orm';
 import { ensureVideoCache } from '../services/cacheService.js';
 
 const router = Router();
-const PRIMARY_MODEL = 'gemini-2.5-flash';
+const PRIMARY_MODEL = 'gemini-1.5-pro-001';
 const API_TIMEOUT_MS = 120_000;
 
 function getAI(): GoogleGenAI {
@@ -17,7 +17,7 @@ function getAI(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is required");
   }
-  return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } });
+  return new GoogleGenAI({ apiKey });
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

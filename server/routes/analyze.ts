@@ -24,7 +24,7 @@ function getAI(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is required");
   }
-  return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } });
+  return new GoogleGenAI({ apiKey });
 }
 
 interface AnalyzeRequest {
@@ -40,7 +40,7 @@ interface AnalyzeRequest {
   videoDurationSeconds?: number;
 }
 
-const PRIMARY_MODEL = "gemini-2.5-flash";
+const PRIMARY_MODEL = "gemini-1.5-pro-001";
 const API_TIMEOUT_MS = 120000;
 
 function getApiTimeout(videoDurationSeconds?: number): number {

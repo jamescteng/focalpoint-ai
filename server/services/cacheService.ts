@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
 import { db } from '../db.js';
 import { uploads } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
@@ -6,8 +6,15 @@ import { FocalPointLogger } from '../utils/logger.js';
 
 const CACHE_TTL_SECONDS = 3600;
 const CACHE_SAFETY_MARGIN_MS = 120_000;
+const MAX_TOKEN_LIMIT = 2_000_000;
 
-const API_VERSIONS_TO_TRY = ['v1alpha', 'v1beta'] as const;
+function getAI(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is required");
+  }
+  return new GoogleGenAI({ apiKey });
+}
 
 function isCacheTransientError(error: any): boolean {
   const msg = (error?.message || '').toLowerCase();
@@ -21,89 +28,12 @@ function isCacheTransientError(error: any): boolean {
   );
 }
 
-async function createCacheViaREST(
-  fileUri: string,
-  fileMimeType: string,
-  model: string,
-  apiVersion: string
-): Promise<{ name: string; usageMetadata?: any } | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY environment variable is required");
-
-  const endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/cachedContents?key=${apiKey}`;
-
-  const body: any = {
-    model: `models/${model}`,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            fileData: {
-              mimeType: fileMimeType || "video/mp4",
-              fileUri: fileUri
-            }
-          }
-        ]
-      }
-    ],
-    systemInstruction: {
-      parts: [
-        {
-          text: "You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed."
-        }
-      ]
-    },
-    ttl: `${CACHE_TTL_SECONDS}s`,
-    mediaResolution: "MEDIA_RESOLUTION_LOW"
-  };
-
-  FocalPointLogger.info("Cache_REST_Request", {
-    endpoint: endpoint.replace(apiKey, '***'),
-    apiVersion,
-    model: `models/${model}`,
-    fileUri: fileUri.substring(0, 80),
-    hasMediaResolution: true,
-    bodyKeys: Object.keys(body)
-  });
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  const responseBody = await response.json();
-
-  if (!response.ok) {
-    FocalPointLogger.error("Cache_REST_Response_Error", {
-      apiVersion,
-      status: response.status,
-      error: JSON.stringify(responseBody).substring(0, 500)
-    });
-    throw new Error(JSON.stringify(responseBody));
-  }
-
-  FocalPointLogger.info("Cache_REST_Response_OK", {
-    apiVersion,
-    cacheName: responseBody.name,
-    totalTokenCount: responseBody.usageMetadata?.totalTokenCount,
-    model: responseBody.model,
-    responseKeys: Object.keys(responseBody)
-  });
-
-  return {
-    name: responseBody.name,
-    usageMetadata: responseBody.usageMetadata
-  };
-}
-
 export async function ensureVideoCache(
   _ai: GoogleGenAI,
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-1.5-pro-001'
 ): Promise<string | null> {
   const [upload] = await db.select()
     .from(uploads)
@@ -121,39 +51,38 @@ export async function ensureVideoCache(
   }
 
   const MAX_CACHE_ATTEMPTS = 3;
+  const ai = getAI();
 
   for (let attempt = 1; attempt <= MAX_CACHE_ATTEMPTS; attempt++) {
     try {
-      FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model, attempt, method: 'REST' });
+      FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model, attempt, method: 'SDK' });
 
-      let lastError: any = null;
-      let cache: { name: string; usageMetadata?: any } | null = null;
+      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4');
 
-      for (const apiVersion of API_VERSIONS_TO_TRY) {
-        try {
-          cache = await createCacheViaREST(fileUri, fileMimeType, model, apiVersion);
-          if (cache?.name) {
-            FocalPointLogger.info("Cache_Create_Success", {
-              cacheName: cache.name,
-              model,
-              apiVersion,
-              totalTokenCount: cache.usageMetadata?.totalTokenCount,
-              ttl: CACHE_TTL_SECONDS,
-              attempt
-            });
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          FocalPointLogger.warn("Cache_REST_Version_Failed", `${apiVersion}: ${err.message?.substring(0, 300)} (attempt ${attempt})`);
+      const cache = await ai.caches.create({
+        model,
+        config: {
+          contents: [createUserContent(videoPart)],
+          systemInstruction: `You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed.`,
+          ttl: `${CACHE_TTL_SECONDS}s`,
         }
+      });
+
+      const cacheName = cache.name!;
+      const totalTokenCount = (cache as any).usageMetadata?.totalTokenCount;
+
+      FocalPointLogger.info("Cache_Create_Success", {
+        cacheName,
+        model,
+        totalTokenCount,
+        ttl: CACHE_TTL_SECONDS,
+        attempt
+      });
+
+      if (totalTokenCount && totalTokenCount > MAX_TOKEN_LIMIT) {
+        FocalPointLogger.warn("Cache_Token_Warning", `Cache token count ${totalTokenCount} exceeds recommended limit of ${MAX_TOKEN_LIMIT}. Video may be too long for reliable analysis.`);
       }
 
-      if (!cache?.name) {
-        throw lastError || new Error('All API versions failed for cache creation');
-      }
-
-      const cacheName = cache.name;
       const expiresAt = new Date(Date.now() + CACHE_TTL_SECONDS * 1000);
 
       await db.update(uploads)

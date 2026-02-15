@@ -6,7 +6,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
 - **Backend**: Express (port 3001), proxied via Vite `/api`
-- **AI**: Google Gemini (`gemini-2.5-flash` via `v1alpha` API for analysis/cache/grounding/questions, `gemini-2.0-flash` via `v1beta` for voice/dialogue, `MEDIA_RESOLUTION_LOW`, 1M token context, 90% cache discount)
+- **AI**: Google Gemini (`gemini-1.5-pro-001` via `v1beta` API for analysis/cache/grounding/questions, `gemini-2.0-flash` for voice/dialogue, `MEDIA_RESOLUTION_LOW` on generateContent, 2M token context, 75% cache discount)
 - **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage
@@ -78,8 +78,8 @@ Uploaded videos get a single Gemini context cache shared across all persona anal
 - `cacheName` passed to all `processAnalysisJob` calls
 - Cache persists after analysis for follow-up questions (not auto-deleted)
 - Cache TTL: 3600s (60 min), safety margin: 120s for expiry checks
-- Cache creation uses direct REST API call (bypasses SDK serialization) with `mediaResolution: MEDIA_RESOLUTION_LOW` (target: ~1.8M → ~450K tokens for 120min films)
-- Cache creation tries `v1alpha` first, falls back to `v1beta` — with detailed logging of request/response for diagnostics
+- Cache creation via standard SDK `caches.create()` (no mediaResolution — that only works on generateContent). 1.5-pro-001's 2M window fits 120min films (~1.8M tokens) natively.
+- `mediaResolution: MEDIA_RESOLUTION_LOW` applied on every `generateContent` call (analyze + grounding + questions) for speed/cost optimization at inference time
 - Cache creation has 3-attempt retry with exponential backoff (2s/5s/10s + jitter) for transient errors
 - DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
 - YouTube limitation: No cache (context caching doesn't support YouTube URLs)
@@ -132,8 +132,8 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 - Logs: `Grounding_Cached`, `Grounding_Direct`, `Grounding_Complete`, `Grounding_Failed`
 
 ## API Resilience
-- **Single model**: `gemini-2.5-flash` for all analysis, grounding, cache, and questions (1M token context, 90% cache discount, `MEDIA_RESOLUTION_LOW` on all calls). `gemini-2.0-flash` for voice/dialogue only.
-- **API version split**: `v1alpha` for cacheService.ts, analyze.ts, questions.ts (required for `mediaResolution` on cache creation + version-locked cache consumption). `v1beta` (default) for voiceScriptService.ts, dialogueService.ts (no cached content).
+- **Single model**: `gemini-1.5-pro-001` for all analysis, grounding, cache, and questions (2M token context, 75% cache discount, `MEDIA_RESOLUTION_LOW` on generateContent calls). `gemini-2.0-flash` for voice/dialogue only.
+- **API version**: `v1beta` (default) for all services. No version split needed — `gemini-1.5-pro-001` works consistently on v1beta.
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
 - **API timeout**: Dynamic based on video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min)
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts
@@ -145,9 +145,9 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 
 ## Grounding Fallback Strategy
 When the context cache is unavailable (creation failed or video too large), grounding uses one of these paths:
-1. **Cache available** → Uses `gemini-2.5-flash` with cached content (90% discount, preferred)
-2. **No cache + uploaded file** → Uses `gemini-2.5-flash` with fileUri directly (re-reads the uploaded file)
-3. **No cache + YouTube** → Uses `gemini-2.5-flash` with YouTube URL directly
+1. **Cache available** → Uses `gemini-1.5-pro-001` with cached content (75% discount, preferred)
+2. **No cache + uploaded file** → Uses `gemini-1.5-pro-001` with fileUri directly (re-reads the uploaded file)
+3. **No cache + YouTube** → Uses `gemini-1.5-pro-001` with YouTube URL directly
 4. **No cache + no fileUri + no YouTube** → Skips grounding (Pass 1 results used as-is)
 
 ## Observability (Blank Screen Diagnostics)
