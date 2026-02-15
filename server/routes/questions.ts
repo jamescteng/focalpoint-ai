@@ -17,7 +17,7 @@ function getAI(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is required");
   }
-  return new GoogleGenAI({ apiKey, apiVersion: 'v1alpha' });
+  return new GoogleGenAI({ apiKey });
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

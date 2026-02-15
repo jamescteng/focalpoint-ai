@@ -6,7 +6,7 @@ AI focus group platform for indie filmmakers. Gemini AI analyzes videos through 
 ## Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite (port 5000), Tailwind CSS
 - **Backend**: Express (port 3001), proxied via Vite `/api`
-- **AI**: Google Gemini (`gemini-2.5-flash` via `v1alpha` API for analysis/cache/grounding/questions, `gemini-2.0-flash` via `v1beta` for voice/dialogue, `MEDIA_RESOLUTION_LOW`, 1M token context, 90% cache discount)
+- **AI**: Google Gemini (`gemini-2.5-flash` via `v1beta` API for analysis/cache/grounding/questions, `gemini-2.0-flash` via `v1beta` for voice/dialogue, `MEDIA_RESOLUTION_LOW`, 1M token context, 90% cache discount)
 - **TTS**: ElevenLabs (`eleven_v3` EN, `eleven_multilingual_v2` zh-TW)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Storage**: Replit Object Storage
@@ -78,7 +78,7 @@ Uploaded videos get a single Gemini context cache shared across all persona anal
 - `cacheName` passed to all `processAnalysisJob` calls
 - Cache persists after analysis for follow-up questions (not auto-deleted)
 - Cache TTL: 3600s (60 min), safety margin: 120s for expiry checks
-- Cache creation uses `MEDIA_RESOLUTION_LOW` via `createPartFromUri` 3rd parameter (reduces ~1.8M tokens to ~450K for 120min films)
+- Cache creation uses `MEDIA_RESOLUTION_LOW` via config-level `mediaResolution` on `caches.create` (reduces ~1.8M tokens to ~450K for 120min films)
 - Cache creation has 3-attempt retry with exponential backoff (2s/5s/10s + jitter) for transient errors
 - DB tracking: `uploads` table stores cacheName, cacheModel, cacheStatus, cacheExpiresAt
 - YouTube limitation: No cache (context caching doesn't support YouTube URLs)
@@ -132,7 +132,7 @@ Two-pass system to improve timestamp accuracy, using Search-not-Verify to avoid 
 
 ## API Resilience
 - **Single model**: `gemini-2.5-flash` for all analysis, grounding, cache, and questions (1M token context, 90% cache discount, `MEDIA_RESOLUTION_LOW` on all calls). `gemini-2.0-flash` for voice/dialogue only.
-- **API version split**: `v1alpha` for analyze.ts, questions.ts, cacheService.ts (required for per-part `mediaResolution` on cache creation + version-locked cache consumption). `v1beta` (default) for voiceScriptService.ts, dialogueService.ts (no cached content).
+- **API version**: All services use `v1beta` (default). Cache creation passes `mediaResolution: MEDIA_RESOLUTION_LOW` at config level via `as any` (JS SDK type not yet updated, but REST API supports it).
 - **Retry logic**: `withRetries()` in analyze.ts - exponential backoff (250ms→5s cap, max 4 attempts, ±10% jitter)
 - **API timeout**: Dynamic based on video duration: 2min (default), 3min (>30min), 4min (>60min), 5min (>90min)
 - **Transient error detection**: HTTP 429/500/502/503/504, network codes (ECONNRESET, ETIMEDOUT, EAI_AGAIN, ENOTFOUND), timeouts

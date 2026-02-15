@@ -1,4 +1,4 @@
-import { GoogleGenAI, createPartFromUri, createUserContent, PartMediaResolutionLevel } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, createUserContent, MediaResolution } from "@google/genai";
 import { db } from '../db.js';
 import { uploads } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
@@ -17,14 +17,6 @@ function isCacheTransientError(error: any): boolean {
     msg.includes('fetch failed') || msg.includes('503') || msg.includes('overloaded') ||
     msg.includes('unavailable') || msg.includes('internal')
   );
-}
-
-function getAlphaAI(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is required");
-  }
-  return new GoogleGenAI({ apiKey, apiVersion: 'v1alpha' });
 }
 
 export async function ensureVideoCache(
@@ -55,16 +47,16 @@ export async function ensureVideoCache(
     try {
       FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model, attempt });
 
-      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4', PartMediaResolutionLevel.MEDIA_RESOLUTION_LOW);
+      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4');
 
-      const alphaAI = getAlphaAI();
-      const cache = await alphaAI.caches.create({
+      const cache = await ai.caches.create({
         model,
         config: {
           contents: [createUserContent(videoPart)],
           systemInstruction: `You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed.`,
           ttl: `${CACHE_TTL_SECONDS}s`,
-        }
+          mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+        } as any
       });
 
       const cacheName = cache.name!;
