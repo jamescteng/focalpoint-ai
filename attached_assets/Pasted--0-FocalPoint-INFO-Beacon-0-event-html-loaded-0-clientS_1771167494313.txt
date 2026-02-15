@@ -1,0 +1,159 @@
+[0] [FocalPoint][INFO][Beacon] {
+[0]   event: 'html_loaded',
+[0]   clientSessionId: 'cs_1771166281627_tmr8uyva',
+[0]   ts: 1771166281627,
+[0]   path: '/',
+[0]   ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.',
+[0]   buildId: 'v1',
+[0]   clientIp: '1.169.73.223, 10.84.2.3',
+[0]   error: undefined
+[0] }
+[0] [FocalPoint][INFO][Beacon] {
+[0]   event: 'react_mounted',
+[0]   clientSessionId: 'cs_1771166281627_tmr8uyva',
+[0]   ts: 1771166284177,
+[0]   path: '/',
+[0]   ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.',
+[0]   buildId: 'v1',
+[0]   clientIp: '1.169.73.223, 10.84.2.3',
+[0]   error: undefined
+[0] }
+[0] [FocalPoint][INFO][Beacon] {
+[0]   event: 'js_loaded',
+[0]   clientSessionId: 'cs_1771166281627_tmr8uyva',
+[0]   ts: 1771166284177,
+[0]   path: '/',
+[0]   ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.',
+[0]   buildId: 'v1',
+[0]   clientIp: '1.169.73.223, 10.84.1.2',
+[0]   error: undefined
+[0] }
+[0] [2c2f1903-76a6-4e84-9dd9-143604c35a04] --> GET /api/sessions | IP: 1.169.73.223, 10.84.2.3 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Sessions_List_OK] {
+[0]   requestId: '2c2f1903-76a6-4e84-9dd9-143604c35a04',
+[0]   count: 49,
+[0]   durationMs: 26
+[0] }
+[0] [2c2f1903-76a6-4e84-9dd9-143604c35a04] <-- GET /api/sessions 304 (41ms)
+[0] [eb02e39f-6327-4e02-af36-65efac9b199b] --> GET /api/sessions | IP: 1.169.73.223, 10.84.2.3 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Sessions_List_OK] {
+[0]   requestId: 'eb02e39f-6327-4e02-af36-65efac9b199b',
+[0]   count: 49,
+[0]   durationMs: 6
+[0] }
+[0] [eb02e39f-6327-4e02-af36-65efac9b199b] <-- GET /api/sessions 304 (10ms)
+[0] [FocalPoint][INFO][Beacon] {
+[0]   event: 'sessions_fetch_ok',
+[0]   clientSessionId: 'cs_1771166281627_tmr8uyva',
+[0]   ts: 1771166284372,
+[0]   path: '/',
+[0]   ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.',
+[0]   buildId: 'v1',
+[0]   clientIp: '1.169.73.223, 10.84.1.2',
+[0]   error: undefined
+[0] }
+[0] [201ddae9-192e-4f53-bb9e-d28feafaa34b] --> POST /api/sessions | IP: 1.169.73.223, 10.84.1.2 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Session_Created] { sessionId: 63, isYoutube: false }
+[0] [201ddae9-192e-4f53-bb9e-d28feafaa34b] <-- POST /api/sessions 200 (239ms)
+[1] [Vite Proxy] Upload request: /api/uploads/init
+[0] [005007a3-4aac-42b0-b1e1-e446a6f2808f] --> POST /api/uploads/init | IP: 1.169.73.223, 10.84.1.2 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [Upload] Initialized upload upl_213160b285424c4d84632ad443063dfa for ACHIPODYSSEY-小檔.mp4 (245238615 bytes)
+[0] [005007a3-4aac-42b0-b1e1-e446a6f2808f] <-- POST /api/uploads/init 200 (815ms)
+[1] [Vite Proxy] Upload request: /api/uploads/complete
+[0] [75e3c6f7-4bf6-4f76-833a-d8ec745f3b95] --> POST /api/uploads/complete | IP: 1.169.73.223, 10.84.1.2 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [Upload] Completed upload upl_213160b285424c4d84632ad443063dfa, starting Gemini transfer...
+[0] [75e3c6f7-4bf6-4f76-833a-d8ec745f3b95] <-- POST /api/uploads/complete 200 (2135ms)
+[0] [Upload] Downloading upl_213160b285424c4d84632ad443063dfa to /tmp/focalpoint-downloads/upl_213160b285424c4d84632ad443063dfa_ACHIPODYSSEY-小檔.mp4 for Gemini transfer...
+[0] [Upload] Download complete for upl_213160b285424c4d84632ad443063dfa, preparing for Gemini transfer...
+[0] [Upload] Direct upload for upl_213160b285424c4d84632ad443063dfa: 233.9MB (compression disabled)
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'GEMINI_UPLOAD_STARTED',
+[0]   stage: 'transferring',
+[0]   pct: 65
+[0] }
+[0] [Upload] Starting Gemini upload for upl_213160b285424c4d84632ad443063dfa (233.9MB original file)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 13% (32MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 27% (64MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 41% (96MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 54% (128MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 68% (160MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 82% (192MB / 234MB)
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 95% (224MB / 234MB)
+[0] [Upload] File stream fully consumed for upl_213160b285424c4d84632ad443063dfa
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'GEMINI_UPLOAD_DONE',
+[0]   stage: 'transferred',
+[0]   pct: 85
+[0] }
+[0] [Upload] Gemini transfer upl_213160b285424c4d84632ad443063dfa: 100% - upload complete, waiting for processing...
+[0] [Upload] Got Gemini file name from finalize response: files/8ngp4s69izak
+[0] [Upload] upl_213160b285424c4d84632ad443063dfa state: PROCESSING (attempt 1/90)
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'PROCESSING_ACTIVE',
+[0]   stage: 'processing',
+[0]   pct: 90
+[0] }
+[0] [Upload] upl_213160b285424c4d84632ad443063dfa state: PROCESSING (attempt 3/90)
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'PROCESSING_ACTIVE',
+[0]   stage: 'processing',
+[0]   pct: 90
+[0] }
+[0] [Upload] upl_213160b285424c4d84632ad443063dfa state: PROCESSING (attempt 5/90)
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'PROCESSING_ACTIVE',
+[0]   stage: 'processing',
+[0]   pct: 90
+[0] }
+[0] [ProgressManager] Writing milestone {
+[0]   uploadId: 'upl_213160b285424c4d84632ad443063dfa',
+[0]   milestone: 'READY',
+[0]   stage: 'ready',
+[0]   pct: 100
+[0] }
+[0] [Upload] upl_213160b285424c4d84632ad443063dfa is now ACTIVE with URI: https://generativelanguage.googleapis.com/v1beta/files/8ngp4s69izak
+[0] [Upload] Successfully processed upl_213160b285424c4d84632ad443063dfa, cleaning up temp files...
+[0] [VideoCompressor] Cleaned up temp file: /tmp/focalpoint-downloads/upl_213160b285424c4d84632ad443063dfa_ACHIPODYSSEY-小檔.mp4
+[0] [5aafb51f-6c8e-4196-9f13-39c850dce959] --> PUT /api/sessions/63 | IP: 1.169.73.223, 10.84.1.2 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Session_Updated] { sessionId: 63 }
+[0] [5aafb51f-6c8e-4196-9f13-39c850dce959] <-- PUT /api/sessions/63 200 (7ms)
+[0] [e1c7c58a-4a05-4996-b7ef-ee30312b5462] --> POST /api/analyze | IP: 1.169.73.223, 10.84.1.2 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Analysis_Jobs_Created] {
+[0]   jobIds: [ 'aj_daa3723bdc62bc00fd9344bf7df4a909' ],
+[0]   sessionId: 63,
+[0]   personas: [ 'social_impact_viewer' ],
+[0]   youtubeUrl: undefined
+[0] }
+[0] [e1c7c58a-4a05-4996-b7ef-ee30312b5462] <-- POST /api/analyze 200 (9ms)
+[0] [FocalPoint][INFO][Cache_Create_Start] {
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/8ngp4s69izak',
+[0]   model: 'gemini-2.5-flash',
+[0]   attempt: 1,
+[0]   method: 'SDK'
+[0] }
+[0] [FocalPoint][ERROR][Cache_Create_Failed] {"error":{"code":400,"message":"Cached content is too large. total_token_count=1807192, max_total_token_count=0","status":"INVALID_ARGUMENT"}} (attempt 1/3, fileUri: https://generativelanguage.googleapis.com/v1beta/files/8ngp4s69izak)
+[0] [FocalPoint][INFO][Global_Cache_Created] { cacheName: undefined, sessionId: 63, jobCount: 1 }
+[0] [FocalPoint][INFO][API_Call] {
+[0]   model: 'gemini-2.5-flash',
+[0]   persona: 'social_impact_viewer',
+[0]   cached: false,
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/8ngp4s69izak',
+[0]   youtubeUrl: undefined
+[0] }
+[0] [FocalPoint][INFO][API_Success] { persona: 'social_impact_viewer', modelUsed: 'gemini-2.5-flash' }
+[0] [FocalPoint][INFO][Grounding_Start] {
+[0]   jobId: 'aj_daa3723bdc62bc00fd9344bf7df4a909',
+[0]   persona: 'social_impact_viewer'
+[0] }
+[0] [FocalPoint][INFO][Grounding_Direct] {
+[0]   reason: 'Uploaded file (no cache)',
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/8ngp4s69izak'
+[0] }
+[0] [FocalPoint][INFO][Grounding_Complete] { correctedCount: 7, totalItems: 10 }
+[0] [bfc7dbba-79d7-41cb-a5f0-42e4c3fdcaa2] --> POST /api/sessions/63/reports | IP: 1.169.73.223, 10.84.4.25 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Report_Created] { reportId: 85, sessionId: 63, personaId: 'social_impact_viewer' }
