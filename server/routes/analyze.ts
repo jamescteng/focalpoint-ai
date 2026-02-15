@@ -40,8 +40,7 @@ interface AnalyzeRequest {
   videoDurationSeconds?: number;
 }
 
-const PRIMARY_MODEL = "gemini-3-flash-preview";
-const FALLBACK_MODEL = "gemini-2.5-flash";
+const PRIMARY_MODEL = "gemini-2.5-flash";
 const API_TIMEOUT_MS = 120000;
 
 function getApiTimeout(videoDurationSeconds?: number): number {
@@ -95,9 +94,6 @@ function isTransientError(error: any): boolean {
   );
 }
 
-function shouldTryFallbackModel(error: any): boolean {
-  return isTransientError(error);
-}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -262,27 +258,6 @@ async function callGeminiWithFallback(
       }
     }
 
-    if (shouldTryFallbackModel(primaryError)) {
-      FocalPointLogger.warn("Model_Fallback", `${PRIMARY_MODEL} failed after retries, falling back to ${FALLBACK_MODEL}`);
-
-      try {
-        const response = await withRetries(
-          () => withTimeout(
-            ai.models.generateContent({
-              model: FALLBACK_MODEL,
-              ...uncachedConfig
-            }),
-            getApiTimeout(params.videoDurationSeconds),
-            `${FALLBACK_MODEL}_${persona.id}`
-          ),
-          `Gemini_${FALLBACK_MODEL}_${persona.id}`
-        );
-        return { response, modelUsed: FALLBACK_MODEL };
-      } catch (fallbackError: any) {
-        FocalPointLogger.error("Fallback_Also_Failed", `Both ${PRIMARY_MODEL} and ${FALLBACK_MODEL} failed for ${persona.id}: ${fallbackError.message}`);
-        throw fallbackError;
-      }
-    }
     throw primaryError;
   }
 }

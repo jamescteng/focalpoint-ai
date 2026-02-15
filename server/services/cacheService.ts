@@ -24,7 +24,7 @@ export async function ensureVideoCache(
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
-  model: string = 'gemini-3-flash-preview'
+  model: string = 'gemini-2.5-flash'
 ): Promise<string | null> {
   const [upload] = await db.select()
     .from(uploads)
@@ -91,7 +91,8 @@ export async function ensureVideoCache(
         return null;
       }
 
-      const base = Math.min(10000, 1000 * Math.pow(2, attempt - 1));
+      const BACKOFF_DELAYS = [2000, 5000, 10000];
+      const base = BACKOFF_DELAYS[attempt - 1] || 10000;
       const jitter = base * 0.2 * (Math.random() * 2 - 1);
       const delay = Math.round(base + jitter);
 
