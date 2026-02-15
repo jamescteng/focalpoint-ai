@@ -1,0 +1,46 @@
+[0] [Upload] upl_c9bade424f8f4cbf924f3c6c388f493d is now ACTIVE with URI: https://generativelanguage.googleapis.com/v1beta/files/roufjalg0uc0
+[0] [Upload] Successfully processed upl_c9bade424f8f4cbf924f3c6c388f493d, cleaning up temp files...
+[0] [VideoCompressor] Cleaned up temp file: /tmp/focalpoint-downloads/upl_c9bade424f8f4cbf924f3c6c388f493d_ACHIPODYSSEY-小檔.mp4
+[0] [04424ca5-bc1d-4c93-a581-3b53a8e2a9b2] --> PUT /api/sessions/51 | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Session_Updated] { sessionId: 51 }
+[0] [04424ca5-bc1d-4c93-a581-3b53a8e2a9b2] <-- PUT /api/sessions/51 200 (7ms)
+[0] [b332d80d-121d-4064-ac4d-746a24f01a68] --> POST /api/analyze | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Analysis_Jobs_Created] {
+[0]   jobIds: [ 'aj_0c6bcafe1ba9fa1b218e543749bb55a9' ],
+[0]   sessionId: 51,
+[0]   personas: [ 'social_impact_viewer' ],
+[0]   youtubeUrl: undefined
+[0] }
+[0] [b332d80d-121d-4064-ac4d-746a24f01a68] <-- POST /api/analyze 200 (18ms)
+[0] [FocalPoint][INFO][Cache_Create_Start] {
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/roufjalg0uc0',
+[0]   model: 'gemini-2.5-flash',
+[0]   attempt: 1
+[0] }
+[0] [FocalPoint][ERROR][Cache_Create_Failed] {"error":{"code":400,"message":"Cached content is too large. total_token_count=1807192, max_total_token_count=0","status":"INVALID_ARGUMENT"}} (attempt 1/3, fileUri: https://generativelanguage.googleapis.com/v1beta/files/roufjalg0uc0)
+[0] [FocalPoint][INFO][Global_Cache_Created] { cacheName: undefined, sessionId: 51, jobCount: 1 }
+[0] [FocalPoint][INFO][API_Call] {
+[0]   model: 'gemini-2.5-flash',
+[0]   persona: 'social_impact_viewer',
+[0]   cached: false,
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/roufjalg0uc0',
+[0]   youtubeUrl: undefined
+[0] }
+[0] [FocalPoint][WARN][API_Retry] Gemini_gemini-2.5-flash_social_impact_viewer attempt 1, retrying in 274ms: Timeout after 300000ms: gemini-2.5-flash_social_impact_viewer
+[0] [FocalPoint][INFO][API_Success] { persona: 'social_impact_viewer', modelUsed: 'gemini-2.5-flash' }
+[0] [FocalPoint][INFO][Grounding_Start] {
+[0]   jobId: 'aj_0c6bcafe1ba9fa1b218e543749bb55a9',
+[0]   persona: 'social_impact_viewer'
+[0] }
+[0] [FocalPoint][WARN][Grounding_Skip] No cache and not YouTube, skipping grounding
+[0] [564bd08d-5eb3-459e-8937-dea97fd11a24] --> POST /api/sessions/51/reports | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Report_Created] { reportId: 81, sessionId: 51, personaId: 'social_impact_viewer' }
+[0] [564bd08d-5eb3-459e-8937-dea97fd11a24] <-- POST /api/sessions/51/reports 200 (24ms)
+[0] [fc73dbae-6999-4d8b-bad9-5a63bc51d189] --> GET /api/sessions/51/reports/social_impact_viewer/voice-script | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [fc73dbae-6999-4d8b-bad9-5a63bc51d189] <-- GET /api/sessions/51/reports/social_impact_viewer/voice-script 404 (5ms)
+[0] [b0655668-eaa4-4593-8485-ce5eadabab73] --> GET /api/dialogue/session/51 | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [b0655668-eaa4-4593-8485-ce5eadabab73] <-- GET /api/dialogue/session/51 200 (5ms)
+[0] [d05de166-53d7-40b7-9a49-cd218e2980ac] --> GET /api/sessions/51/reports/social_impact_viewer/voice-script | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [d05de166-53d7-40b7-9a49-cd218e2980ac] <-- GET /api/sessions/51/reports/social_impact_viewer/voice-script 404 (2ms)
+[0] [e471b3b4-2dd0-4bce-a361-599397ea3995] --> GET /api/dialogue/session/51 | IP: 1.169.73.223, 10.84.0.10 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [e471b3b4-2dd0-4bce-a361-599397ea3995] <-- GET /api/dialogue/session/51 304 (2ms)
