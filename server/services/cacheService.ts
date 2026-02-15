@@ -1,4 +1,4 @@
-import { GoogleGenAI, createPartFromUri, createUserContent, MediaResolution } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
 import { db } from '../db.js';
 import { uploads } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
@@ -6,6 +6,14 @@ import { FocalPointLogger } from '../utils/logger.js';
 
 const CACHE_TTL_SECONDS = 3600;
 const CACHE_SAFETY_MARGIN_MS = 120_000;
+
+function getCacheAI(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is required");
+  }
+  return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } });
+}
 
 function isCacheTransientError(error: any): boolean {
   const msg = (error?.message || '').toLowerCase();
@@ -20,12 +28,13 @@ function isCacheTransientError(error: any): boolean {
 }
 
 export async function ensureVideoCache(
-  ai: GoogleGenAI,
+  _ai: GoogleGenAI,
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
   model: string = 'gemini-2.5-flash'
 ): Promise<string | null> {
+  const ai = getCacheAI();
   const [upload] = await db.select()
     .from(uploads)
     .where(eq(uploads.uploadId, uploadId))
@@ -55,7 +64,7 @@ export async function ensureVideoCache(
           contents: [createUserContent(videoPart)],
           systemInstruction: `You are a professional film analyst. Analyze the video content thoroughly and respond in JSON format as instructed.`,
           ttl: `${CACHE_TTL_SECONDS}s`,
-          mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+          mediaResolution: 'MEDIA_RESOLUTION_LOW',
         } as any
       });
 
