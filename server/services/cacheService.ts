@@ -19,6 +19,14 @@ function isCacheTransientError(error: any): boolean {
   );
 }
 
+function getAlphaAI(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is required");
+  }
+  return new GoogleGenAI({ apiKey, apiVersion: 'v1alpha' });
+}
+
 export async function ensureVideoCache(
   ai: GoogleGenAI,
   uploadId: string,
@@ -49,7 +57,8 @@ export async function ensureVideoCache(
 
       const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4', PartMediaResolutionLevel.MEDIA_RESOLUTION_LOW);
 
-      const cache = await ai.caches.create({
+      const alphaAI = getAlphaAI();
+      const cache = await alphaAI.caches.create({
         model,
         config: {
           contents: [createUserContent(videoPart)],

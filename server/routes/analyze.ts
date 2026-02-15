@@ -24,7 +24,7 @@ function getAI(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is required");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey, apiVersion: 'v1alpha' });
 }
 
 interface AnalyzeRequest {
