@@ -24,7 +24,7 @@ export async function ensureVideoCache(
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
-  model: string = 'gemini-1.5-flash'
+  model: string = 'gemini-1.5-pro-001'
 ): Promise<string | null> {
   const [upload] = await db.select()
     .from(uploads)

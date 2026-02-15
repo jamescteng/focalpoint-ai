@@ -40,8 +40,7 @@ interface AnalyzeRequest {
   videoDurationSeconds?: number;
 }
 
-const PRIMARY_MODEL = "gemini-2.5-flash";
-const CACHE_MODEL = "gemini-1.5-flash";
+const PRIMARY_MODEL = "gemini-1.5-pro-001";
 const API_TIMEOUT_MS = 120000;
 
 function getApiTimeout(videoDurationSeconds?: number): number {
@@ -173,7 +172,7 @@ async function callGeminiWithFallback(
   });
 
   const useCached = !!params.cacheName;
-  const activeModel = useCached ? CACHE_MODEL : PRIMARY_MODEL;
+  const activeModel = PRIMARY_MODEL;
 
   const videoPart = params.youtubeUrl
     ? { fileData: { fileUri: params.youtubeUrl, mimeType: 'video/*' } }
@@ -495,10 +494,10 @@ Respond strictly in JSON:
     let response;
 
     if (useSharedCache) {
-      FocalPointLogger.info("Grounding_Cached", { cacheName: params.cacheName, model: CACHE_MODEL });
+      FocalPointLogger.info("Grounding_Cached", { cacheName: params.cacheName, model: PRIMARY_MODEL });
       response = await withTimeout(
         ai.models.generateContent({
-          model: CACHE_MODEL,
+          model: PRIMARY_MODEL,
           contents: searchPrompt,
           config: {
             cachedContent: params.cacheName!,

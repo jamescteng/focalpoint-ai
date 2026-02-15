@@ -9,8 +9,7 @@ import { eq, and } from 'drizzle-orm';
 import { ensureVideoCache } from '../services/cacheService.js';
 
 const router = Router();
-const PRIMARY_MODEL = 'gemini-2.5-flash';
-const CACHE_MODEL = 'gemini-1.5-flash';
+const PRIMARY_MODEL = 'gemini-1.5-pro-001';
 const API_TIMEOUT_MS = 120_000;
 
 function getAI(): GoogleGenAI {
@@ -141,10 +140,10 @@ INSTRUCTIONS:
     let response;
 
     if (cacheName) {
-      FocalPointLogger.info("Questions_Cached", { cacheName, personaId, model: CACHE_MODEL });
+      FocalPointLogger.info("Questions_Cached", { cacheName, personaId, model: PRIMARY_MODEL });
       response = await withTimeout(
         ai.models.generateContent({
-          model: CACHE_MODEL,
+          model: PRIMARY_MODEL,
           contents: questionsPrompt,
           config: {
             cachedContent: cacheName,
