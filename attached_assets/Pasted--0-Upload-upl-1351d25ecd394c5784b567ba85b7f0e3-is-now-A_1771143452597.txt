@@ -1,0 +1,37 @@
+[0] [Upload] upl_1351d25ecd394c5784b567ba85b7f0e3 is now ACTIVE with URI: https://generativelanguage.googleapis.com/v1beta/files/kx1juv5s0jfm
+[0] [Upload] Successfully processed upl_1351d25ecd394c5784b567ba85b7f0e3, cleaning up temp files...
+[0] [VideoCompressor] Cleaned up temp file: /tmp/focalpoint-downloads/upl_1351d25ecd394c5784b567ba85b7f0e3_ACHIPODYSSEY-小檔.mp4
+[0] [43e63cf3-7337-4d97-a64c-2537d781814c] --> PUT /api/sessions/53 | IP: 1.169.73.223, 10.84.4.25 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Session_Updated] { sessionId: 53 }
+[0] [43e63cf3-7337-4d97-a64c-2537d781814c] <-- PUT /api/sessions/53 200 (17ms)
+[0] [9ab5d5f3-e95a-4e36-9719-aa4a9638f53a] --> POST /api/analyze | IP: 1.169.73.223, 10.84.4.25 | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.
+[0] [FocalPoint][INFO][Analysis_Jobs_Created] {
+[0]   jobIds: [ 'aj_6978848988d3ec0a27352e2c1800eb90' ],
+[0]   sessionId: 53,
+[0]   personas: [ 'cultural_editor' ],
+[0]   youtubeUrl: undefined
+[0] }
+[0] [9ab5d5f3-e95a-4e36-9719-aa4a9638f53a] <-- POST /api/analyze 200 (7ms)
+[0] [FocalPoint][INFO][Cache_Create_Start] {
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/kx1juv5s0jfm',
+[0]   model: 'gemini-1.5-flash',
+[0]   attempt: 1
+[0] }
+[0] [FocalPoint][ERROR][Cache_Create_Failed] {"error":{"code":404,"message":"models/gemini-1.5-flash is not found for API version v1beta, or is not supported for createCachedContent. Call ListModels to see the list of available models and their supported methods.","status":"NOT_FOUND"}} (attempt 1/3, fileUri: https://generativelanguage.googleapis.com/v1beta/files/kx1juv5s0jfm)
+[0] [FocalPoint][INFO][Global_Cache_Created] { cacheName: undefined, sessionId: 53, jobCount: 1 }
+[0] [FocalPoint][INFO][API_Call] {
+[0]   model: 'gemini-2.5-flash',
+[0]   persona: 'cultural_editor',
+[0]   cached: false,
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/kx1juv5s0jfm',
+[0]   youtubeUrl: undefined
+[0] }
+[0] [FocalPoint][INFO][API_Success] { persona: 'cultural_editor', modelUsed: 'gemini-2.5-flash' }
+[0] [FocalPoint][INFO][Grounding_Start] {
+[0]   jobId: 'aj_6978848988d3ec0a27352e2c1800eb90',
+[0]   persona: 'cultural_editor'
+[0] }
+[0] [FocalPoint][INFO][Grounding_Direct] {
+[0]   reason: 'Uploaded file (no cache)',
+[0]   fileUri: 'https://generativelanguage.googleapis.com/v1beta/files/kx1juv5s0jfm'
+[0] }
