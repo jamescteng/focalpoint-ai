@@ -1,0 +1,33 @@
+Action Plan for the Developer
+Phase 1: Core Configuration (v1beta Restore)
+Update SDK: Ensure @google/generative-ai is at least v1.41.0.
+Restore API Version: Set the client to v1beta globally. Remove all v1alpha experimental clients.
+Define Model ID: Use the explicit versioned string:
+PRIMARY_MODEL = 'models/gemini-1.5-pro-001'
+Phase 2: Cache Service (cacheService.ts)
+Simplify createCachedContent: Remove the mediaResolution parameter from the cache creation call.
+Reasoning: Since 1.5 Pro-001 has a 2M window, we don't need to force the cache to be small. 1.8M tokens will fit natively.
+Set TTL: Ensure ttlSeconds: 3600 (1 hour) is set so all 10 personas can share the same 1.8M token cache.
+Phase 3: Analysis & Grounding (analyze.ts)
+Pass 1 (Main Analysis): In the generateContent call referencing the cache, add the following to generationConfig:
+code
+TypeScript
+generationConfig: {
+  mediaResolution: 'MEDIA_RESOLUTION_LOW', // AI "sees" at low res for speed/cost
+  // other params...
+}
+Pass 2 (Grounding): Apply the same mediaResolution: 'MEDIA_RESOLUTION_LOW' to the verification call.
+Prompt Grounding: Ensure Pass 2 sends the visual "evidence" back to Pass 1 results as planned to fix the timestamp drift.
+Phase 4: Validation Logic
+Add a check before analysis:
+If (totalTokens > 2,000,000) { throw Error("Video too long even for Pro-001"); }
+Log the cacheName and totalTokenCount to confirm the 1.8M tokens are being successfully stored.
+Why this works (The Math)
+Ingestion: Your 120-min film (1.8M tokens) goes into the 2,000,000 token bucket. (SUCCESS)
+Cost: You get the 75% Context Caching discount. Instead of paying for 1.8M tokens x 20 calls (10 agents + 10 grounding), you pay for 1.8M tokens once, then a highly discounted rate for the rest.
+Speed: Even with a large cache, the LOW resolution flag at the inference level tells the model to prioritize speed over pixel-perfect detail, preventing the "Fetch Failed" timeouts.
+Summary of the "Golden Rule" to tell the Dev:
+"We are restoring the app to v1beta and moving everything to gemini-1.5-pro-001.
+Cache Creation: Create it normally (the 2M window will handle our 1.8M token videos).
+Inference: Apply MEDIA_RESOLUTION_LOW in the generateContent config only.
+Consistency: Use the same model ID for both steps. No direct REST calls needed—standard SDK should work now that we aren't trying to put invalid fields in the cache config."
