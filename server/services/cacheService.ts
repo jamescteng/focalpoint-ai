@@ -1,4 +1,4 @@
-import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, createUserContent, PartMediaResolutionLevel } from "@google/genai";
 import { db } from '../db.js';
 import { uploads } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
@@ -47,7 +47,7 @@ export async function ensureVideoCache(
     try {
       FocalPointLogger.info("Cache_Create_Start", { fileUri: fileUri.substring(0, 80), model, attempt });
 
-      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4');
+      const videoPart = createPartFromUri(fileUri, fileMimeType || 'video/mp4', PartMediaResolutionLevel.MEDIA_RESOLUTION_LOW);
 
       const cache = await ai.caches.create({
         model,
