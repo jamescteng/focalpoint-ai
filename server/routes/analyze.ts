@@ -40,7 +40,7 @@ interface AnalyzeRequest {
   videoDurationSeconds?: number;
 }
 
-const PRIMARY_MODEL = "gemini-1.5-pro-001";
+const PRIMARY_MODEL = "gemini-2.5-flash";
 const API_TIMEOUT_MS = 120000;
 
 function getApiTimeout(videoDurationSeconds?: number): number {

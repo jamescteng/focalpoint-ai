@@ -6,7 +6,7 @@ import { FocalPointLogger } from '../utils/logger.js';
 
 const CACHE_TTL_SECONDS = 3600;
 const CACHE_SAFETY_MARGIN_MS = 120_000;
-const MAX_TOKEN_LIMIT = 2_000_000;
+const MAX_TOKEN_LIMIT = 1_048_576;
 
 function getAI(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -33,7 +33,7 @@ export async function ensureVideoCache(
   uploadId: string,
   fileUri: string,
   fileMimeType: string,
-  model: string = 'gemini-1.5-pro-001'
+  model: string = 'gemini-2.5-flash'
 ): Promise<string | null> {
   const [upload] = await db.select()
     .from(uploads)
